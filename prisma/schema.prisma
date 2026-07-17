@@ -1,0 +1,46 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Order {
+  id                 String    @id @default(uuid())
+  recipientName      String
+  personality        String
+  genre              String
+  userEmail          String?
+  customerEmail      String?
+  selectedStyle      String?
+  selectedArtistStyle String?
+  status             String    @default("pending")
+  stripeSessionId    String?
+  stripePaymentIntentId String?
+  paypalOrderId      String?
+  aiRequestId        String?
+  audioUrl           String?
+  lyrics             String?
+  title              String?
+  coverImageUrl      String?
+  duration           String?
+  isFullVersion      Boolean @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([stripeSessionId])
+  @@index([paypalOrderId])
+  @@index([aiRequestId])
+  @@index([status])
+}
+
+model TrialUsage {
+  id        String    @id @default(uuid())
+  ipAddress String
+  usedAt    DateTime  @default(now())
+
+  @@index([ipAddress])
+  @@index([usedAt])
+}
