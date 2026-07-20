@@ -9,6 +9,7 @@ const CreateOrderSchema = z.object({
   selectedStyle: z.string().optional(),
   selectedArtistStyle: z.string().optional(),
   userEmail: z.string().email().optional(),
+  songConfig: z.any().optional(),
 });
 
 function getPayPalConfig() {
@@ -41,9 +42,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { recipientName, personality, genre, selectedStyle, selectedArtistStyle, userEmail } = result.data;
+    const { recipientName, personality, genre, selectedStyle, selectedArtistStyle, userEmail, songConfig } = result.data;
 
     const orderId = crypto.randomUUID();
+
+    console.log(`[${new Date().toISOString()}] Creating order with email:`, userEmail || 'NOT PROVIDED');
+    console.log(`[${new Date().toISOString()}] Creating order with songConfig:`, songConfig ? 'PROVIDED' : 'NOT PROVIDED');
 
     await prisma.order.create({
       data: {
@@ -54,6 +58,7 @@ export async function POST(request: NextRequest) {
         selectedStyle,
         selectedArtistStyle,
         customerEmail: userEmail || null,
+        songConfig: songConfig ? JSON.stringify(songConfig) : null,
         status: 'pending',
         isFullVersion: true,
       },

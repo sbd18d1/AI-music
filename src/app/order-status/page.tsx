@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, Check, X, Music, Clock, ArrowLeft, Download } from 'lucide-react';
+import { Loader2, Check, X, Music, Clock, ArrowLeft, Download, Mail } from 'lucide-react';
 
 interface Order {
   id: string;
@@ -14,6 +14,7 @@ interface Order {
   coverImageUrl?: string;
   duration?: string;
   createdAt: string;
+  customerEmail?: string | null;
 }
 
 export default function OrderStatus() {
@@ -22,6 +23,11 @@ export default function OrderStatus() {
   const [error, setError] = useState('');
   const [polling, setPolling] = useState(true);
   const [autoDownloaded, setAutoDownloaded] = useState(false);
+
+  // 邮箱相关状态
+  const [emailInput, setEmailInput] = useState('');
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [emailError, setEmailError] = useState('');
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -69,7 +75,7 @@ export default function OrderStatus() {
       }
     };
 
-    const fetchOrder = async () => {
+    const fetchOrder = async (retryCount: number = 0) => {
       try {
         const params = sessionId ? `session_id=${sessionId}` : `order_id=${orderId}`;
         const response = await fetch(`/api/order-status?${params}`);
@@ -88,12 +94,24 @@ export default function OrderStatus() {
             setPolling(false);
           }
         } else {
-          setError(data.error || 'Order not found');
-          setIsLoading(false);
+          // 如果订单没找到且重试次数少于5次，继续重试
+          if (retryCount < 5) {
+            console.log(`Order not found, retrying... (${retryCount + 1}/5)`);
+            setTimeout(() => fetchOrder(retryCount + 1), 2000);
+          } else {
+            setError(data.error || 'Order not found');
+            setIsLoading(false);
+          }
         }
       } catch (err) {
-        setError('Failed to fetch order status');
-        setIsLoading(false);
+        console.error('Failed to fetch order:', err);
+        // 如果网络错误且重试次数少于5次，继续重试
+        if (retryCount < 5) {
+          setTimeout(() => fetchOrder(retryCount + 1), 2000);
+        } else {
+          setError('Failed to fetch order status');
+          setIsLoading(false);
+        }
       }
     };
 
@@ -128,6 +146,46 @@ export default function OrderStatus() {
       downloadAudio();
     }
   }, [order, autoDownloaded]);
+
+  // 发送邮件到用户输入的邮箱
+  const handleSendEmail = async () => {
+    if (!order?.audioUrl) {
+      setEmailError('Song is not ready yet');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailInput)) {
+      setEmailError('Please enter a valid email address');
+      return;
+    }
+
+    setEmailStatus('sending');
+    setEmailError('');
+
+    try {
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: emailInput,
+          audioUrl: order.audioUrl,
+          title: order.title,
+          lyrics: order.lyrics,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send email');
+      }
+
+      setEmailStatus('sent');
+    } catch (err) {
+      console.error('Email send error:', err);
+      setEmailStatus('error');
+      setEmailError('Failed to send email. Please try again.');
+    }
+  };
 
   const getStatusContent = () => {
     if (!order) return null;
@@ -212,6 +270,107 @@ export default function OrderStatus() {
               ) : (
                 <div className="text-center py-8 text-deep-navy/50 text-xl">
                   🎶 This is an instrumental track, no lyrics available
+                </div>
+              )}
+            </div>
+
+            <div className="bg-warm-cream border-2 border-deep-navy rounded-lg p-6 mt-6 shadow-card">
+              <h4 className="font-serif text-xl font-bold text-deep-navy mb-4 text-center">🔗 Share This Song</h4>
+              <div className="flex justify-center gap-4">
+                <a
+                  href={`${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/song/${order.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-burgundy-wine hover:bg-burgundy-wine/80 text-white font-bold py-3 px-6 rounded-lg border-2 border-deep-navy shadow-retro-sm hover:shadow-retro transition-all text-lg"
+                >
+                  📤 Share Link
+                </a>
+                <a
+                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(process.env.NEXT_PUBLIC_URL || 'http://localhost:3000')}/song/${order.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg border-2 border-deep-navy shadow-retro-sm hover:shadow-retro transition-all text-lg"
+                >
+                  📘 Facebook
+                </a>
+                <a
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Listen to this special song for ${order.recipientName}!`)})&url=${encodeURIComponent(process.env.NEXT_PUBLIC_URL || 'http://localhost:3000')}/song/${order.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-6 rounded-lg border-2 border-deep-navy shadow-retro-sm hover:shadow-retro transition-all text-lg"
+                >
+                  🐦 Twitter
+                </a>
+              </div>
+              <p className="text-center text-deep-navy/60 text-lg mt-4">
+                Share your unique song with friends and family!
+              </p>
+            </div>
+
+            {/* 邮箱发送区域 - 用户可主动输入邮箱接收歌曲 */}
+            <div className="bg-white border-2 border-deep-navy rounded-lg p-6 mt-6 shadow-card">
+              <h4 className="font-serif text-xl font-bold text-deep-navy mb-4 text-center flex items-center justify-center gap-2">
+                <Mail className="w-6 h-6" />
+                Send Song to Your Email
+              </h4>
+              {emailStatus === 'sent' ? (
+                <div className="text-center py-4">
+                  <div className="w-16 h-16 bg-warm-green/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Check className="w-8 h-8 text-warm-green" />
+                  </div>
+                  <p className="text-deep-navy text-xl font-semibold">
+                    Email sent successfully!
+                  </p>
+                  <p className="text-deep-navy/70 text-lg mt-2">
+                    Check your inbox at {emailInput}
+                  </p>
+                  <button
+                    onClick={() => {
+                      setEmailStatus('idle');
+                      setEmailInput('');
+                    }}
+                    className="mt-4 text-burgundy-wine hover:text-burgundy-wine/80 font-semibold text-lg underline"
+                  >
+                    Send to another email
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-deep-navy/70 text-lg text-center">
+                    Enter your email to receive the MP3 and lyrics directly in your inbox.
+                  </p>
+                  <input
+                    type="email"
+                    value={emailInput}
+                    onChange={(e) => {
+                      setEmailInput(e.target.value);
+                      setEmailError('');
+                      setEmailStatus('idle');
+                    }}
+                    placeholder="Enter your email address..."
+                    className="w-full bg-warm-cream border-2 border-deep-navy rounded-lg px-6 py-5 text-xl text-deep-navy placeholder-deep-navy/30 focus:outline-none focus:border-burgundy-wine"
+                    disabled={emailStatus === 'sending'}
+                  />
+                  {emailError && (
+                    <p className="text-warm-red text-lg font-semibold text-center">{emailError}</p>
+                  )}
+                  <button
+                    onClick={handleSendEmail}
+                    disabled={emailStatus === 'sending' || !emailInput.trim()}
+                    className="w-full bg-burgundy-wine hover:bg-burgundy-wine/80 text-white font-bold py-5 px-8 rounded-lg text-xl border-2 border-deep-navy shadow-retro hover:shadow-retro-lg transition-all flex items-center justify-center gap-3 active:translate-x-1 active:translate-y-1 active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {emailStatus === 'sending' ? (
+                      <>
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="w-6 h-6" />
+                        Send to My Email
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
             </div>

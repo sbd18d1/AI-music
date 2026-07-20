@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
     let genre = body.genre || 'Classic Rock';
     let selectedStyle = body.selectedStyle || genre;
     let selectedArtistStyle = body.selectedArtistStyle || 'None';
+    const songConfig = body.songConfig || undefined;
 
     if (AI_GENERATION_MODE === 'mock') {
       if (!personality || personality.length < 5) {
@@ -100,6 +101,7 @@ export async function POST(request: NextRequest) {
         genre,
         selectedStyle,
         selectedArtistStyle,
+        songConfig: songConfig ? JSON.stringify(songConfig) : null,
         status: 'testing',
         isFullVersion: false,
       },
@@ -112,6 +114,7 @@ export async function POST(request: NextRequest) {
       isPreview: AI_GENERATION_MODE === 'mock',
       selectedStyle,
       selectedArtistStyle,
+      songConfig,
     });
 
     if (aiResponse.success && aiResponse.audioUrl) {

@@ -5,6 +5,8 @@ import { Sparkles, Music, Heart, Zap, CreditCard, Loader2, Check, Rocket, Lock, 
 import { getTheme } from '@/lib/theme';
 import { getDeliveryStrategy, DELIVERY_MODE, type DeliveryStrategy, type DeviceSession } from '@/lib/deliveryStrategy';
 import EmailModal from '@/components/EmailModal';
+import SongConfigPanel from '@/components/SongConfigPanel';
+import { DEFAULT_SELECTION, isSelectionComplete, deriveGenreFromConfig, type SongConfigSelection } from '@/lib/song-config';
 
 const theme = getTheme();
 
@@ -75,12 +77,16 @@ export default function Home() {
   const [coverImageUrl, setCoverImageUrl] = useState('');
   const [songDuration, setSongDuration] = useState('');
   const [currentTime, setCurrentTime] = useState(0);
+  const [orderId, setOrderId] = useState('');
 
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [userEmail, setUserEmail] = useState('');
   const [paymentComplete, setPaymentComplete] = useState(false);
   const [isPaidDevice, setIsPaidDevice] = useState(false);
   const [showPaidForm, setShowPaidForm] = useState(false);
+
+  // 多维度歌曲配置选择
+  const [songConfig, setSongConfig] = useState<SongConfigSelection>(DEFAULT_SELECTION);
   
   const deliveryStrategy = getDeliveryStrategy();
 
@@ -148,8 +154,14 @@ export default function Home() {
   const handleGenerateSong = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.description || !formData.style) {
-      alert('Please fill in the description and select a style');
+    if (!formData.description) {
+      alert('Please fill in the description');
+      return;
+    }
+
+    // 校验：每个维度都必须选择一项（互斥规则已由单选按钮保证）
+    if (!isSelectionComplete(songConfig)) {
+      alert('Please complete all 5 song configuration dimensions (Style, Audience, Vocal, Vibe, Occasion)');
       return;
     }
 
@@ -158,12 +170,15 @@ export default function Home() {
     setErrorMessage('');
 
     try {
+      // 从多维度配置推导 genre（兼容旧版字段）
+      const derivedGenre = deriveGenreFromConfig(songConfig);
       const payload = {
         recipientName: 'Gift Recipient',
         personality: formData.description,
-        genre: formData.style,
-        selectedStyle: formData.style,
-        selectedArtistStyle: formData.artistStyle,
+        genre: derivedGenre,
+        selectedStyle: derivedGenre,
+        selectedArtistStyle: 'None',
+        songConfig,
       };
 
       const response = await fetch('/api/generate-test', {
@@ -183,6 +198,7 @@ export default function Home() {
         setSongLyrics(data.lyrics || '');
         setCoverImageUrl(data.coverImageUrl || '');
         setSongDuration(data.duration || '');
+        setOrderId(data.orderId || '');
         setShowResult(true);
         
         deliveryStrategy.saveSongData({
@@ -227,27 +243,31 @@ export default function Home() {
   };
 
   const handleBuyFullVersion = (email?: string) => {
-    const userEmailAddress = email || userEmail;
-
-    if (!userEmailAddress) {
-      setShowEmailModal(true);
-      return;
-    }
+    // 邮箱为可选，未提供时也允许直接付款
+    const userEmailAddress = email || userEmail || undefined;
 
     // 如果表单为空（如试用后刷新页面），使用已保存的歌曲信息
     const personality = (formData.description || 'Custom song request').slice(0, 900);
-    const genre = (formData.style as string) || 'Classic Rock';
+    // 从多维度配置推导 genre（兼容旧版字段）
+    const genre = deriveGenreFromConfig(songConfig);
 
     setIsLoading(true);
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       recipientName: 'Gift Recipient',
       personality: personality,
       genre: genre,
       selectedStyle: genre,
-      selectedArtistStyle: formData.artistStyle || 'None',
-      userEmail: userEmailAddress,
+      selectedArtistStyle: 'None',
     };
+
+    // 仅在用户提供邮箱时才带上
+    if (userEmailAddress) {
+      payload.userEmail = userEmailAddress;
+    }
+
+    // 带上多维度配置，确保整曲生成沿用试听时的选择
+    payload.songConfig = songConfig;
 
     if (PAYMENT_PROVIDER === 'paypal') {
       fetch('/api/paypal/create-order', {
@@ -302,8 +322,8 @@ export default function Home() {
       // 已付费：直接下载
       downloadAudio();
     } else {
-      // 未付费：弹出邮箱模态框，收集邮箱后发起支付
-      setShowEmailModal(true);
+      // 未付费：直接发起支付（邮箱可选，在表单中填写）
+      handleBuyFullVersion();
     }
   };
 
@@ -441,47 +461,25 @@ export default function Home() {
                 />
               </div>
 
-              <div>
-                <label className="block text-deep-navy/80 font-semibold mb-4 text-xl">
-                  Choose Your Style (What kind of music do you love?)
-                </label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {styleOptions.map((style) => (
-                    <div
-                      key={style.id}
-                      onClick={() => setFormData({ ...formData, style: style.id })}
-                      className={`style-card text-center p-5 rounded-lg border-2 cursor-pointer transition-all ${formData.style === style.id ? 'border-burgundy-wine bg-burgundy-wine/5 shadow-retro-sm' : 'border-deep-navy/30 bg-warm-cream hover:border-deep-navy'}`}
-                    >
-                      <div className="text-4xl mb-3">{style.icon}</div>
-                      <h4 className="text-xl font-semibold text-deep-navy mb-1">{style.name}</h4>
-                      <p className="text-lg text-deep-navy/60">{style.description}</p>
-                      {formData.style === style.id && (
-                        <div className="mt-3 w-8 h-8 bg-burgundy-wine rounded-full flex items-center justify-center mx-auto">
-                          <Check className="w-5 h-5 text-white" />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {/* 多维度歌曲配置面板（点击弹出，包含音乐风格/人声等全部维度） */}
+              <SongConfigPanel
+                selection={songConfig}
+                onChange={setSongConfig}
+              />
 
               <div>
                 <label className="block text-deep-navy/80 font-semibold mb-4 text-xl">
-                  Inspired By (Sound like your favorite artists?)
+                  Email (Optional)
                 </label>
-                <select
-                  value={formData.artistStyle}
-                  onChange={(e) => setFormData({ ...formData, artistStyle: e.target.value as ArtistStyle })}
-                  className="w-full bg-warm-cream border-2 border-deep-navy rounded-lg px-6 py-5 text-xl text-deep-navy focus:outline-none focus:border-burgundy-wine appearance-none cursor-pointer"
-                >
-                  {artistOptions.map((artist) => (
-                    <option key={artist.id} value={artist.id} className="bg-warm-cream">
-                      {artist.name} - {artist.description}
-                    </option>
-                  ))}
-                </select>
+                <input
+                  type="email"
+                  value={userEmail}
+                  onChange={(e) => setUserEmail(e.target.value)}
+                  className="w-full bg-warm-cream border-2 border-deep-navy rounded-lg px-6 py-5 text-xl text-deep-navy placeholder-deep-navy/30 focus:outline-none focus:border-burgundy-wine"
+                  placeholder="Enter your email to receive the song..."
+                />
                 <p className="text-deep-navy/60 text-lg mt-3">
-                  💡 Tip: You can also describe a specific singer's voice in the description above, like "sounding like Frank Sinatra"
+                  💡 Optional: Provide your email to receive the MP3 directly in your inbox after purchase.
                 </p>
               </div>
 
@@ -514,7 +512,7 @@ export default function Home() {
 
                 <button
                   type="button"
-                  onClick={() => setShowEmailModal(true)}
+                  onClick={() => handleBuyFullVersion()}
                   disabled={isLoading}
                   className="w-full bg-paypal-gold text-deep-navy font-bold py-5 px-8 rounded-lg text-xl border-2 border-deep-navy shadow-retro hover:shadow-retro-lg hover:bg-warm-amber transition-all flex items-center justify-center gap-3 active:translate-x-1 active:translate-y-1 active:shadow-none"
                 >
@@ -639,9 +637,60 @@ export default function Home() {
                   </div>
 
                   {!paymentComplete && (
+                    <div className="bg-warm-cream border-2 border-deep-navy rounded-lg p-6">
+                      <h4 className="font-serif text-xl font-bold text-deep-navy mb-4 text-center">📧 Email (Optional)</h4>
+                      <p className="text-deep-navy/70 text-lg text-center mb-4">
+                        Enter your email to receive the song directly after purchase
+                      </p>
+                      <input
+                        type="email"
+                        value={userEmail}
+                        onChange={(e) => setUserEmail(e.target.value)}
+                        className="w-full bg-white border-2 border-deep-navy rounded-lg px-6 py-5 text-xl text-deep-navy placeholder-deep-navy/30 focus:outline-none focus:border-burgundy-wine"
+                        placeholder="your@email.com"
+                      />
+                    </div>
+                  )}
+
+                  {orderId && paymentComplete && (
+                    <div className="bg-warm-cream border-2 border-deep-navy rounded-lg p-6">
+                      <h4 className="font-serif text-xl font-bold text-deep-navy mb-4 text-center">🔗 Share This Song</h4>
+                      <div className="flex justify-center gap-4">
+                        <a
+                          href={`${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/song/${orderId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="bg-burgundy-wine hover:bg-burgundy-wine/80 text-white font-bold py-3 px-6 rounded-lg border-2 border-deep-navy shadow-retro-sm hover:shadow-retro transition-all text-lg"
+                        >
+                          📤 Share Link
+                        </a>
+                        <a
+                          href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(process.env.NEXT_PUBLIC_URL || 'http://localhost:3000')}/song/${orderId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg border-2 border-deep-navy shadow-retro-sm hover:shadow-retro transition-all text-lg"
+                        >
+                          📘 Facebook
+                        </a>
+                        <a
+                          href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Listen to this special song for ${songTitle || 'someone special'}!`)})&url=${encodeURIComponent(process.env.NEXT_PUBLIC_URL || 'http://localhost:3000')}/song/${orderId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-6 rounded-lg border-2 border-deep-navy shadow-retro-sm hover:shadow-retro transition-all text-lg"
+                        >
+                          🐦 Twitter
+                        </a>
+                      </div>
+                      <p className="text-center text-deep-navy/60 text-lg mt-4">
+                        Share your unique song with friends and family!
+                      </p>
+                    </div>
+                  )}
+
+                  {!paymentComplete && (
                     <button
                       type="button"
-                      onClick={() => setShowEmailModal(true)}
+                      onClick={() => handleBuyFullVersion()}
                       disabled={isLoading}
                       className="w-full bg-paypal-gold text-deep-navy font-bold py-5 px-6 rounded-lg text-xl border-2 border-deep-navy shadow-retro hover:shadow-retro-lg hover:bg-warm-amber transition-all flex items-center justify-center gap-3 active:translate-x-1 active:translate-y-1 active:shadow-none"
                     >

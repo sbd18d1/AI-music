@@ -44,6 +44,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log(`[${new Date().toISOString()}] Found order with customerEmail:`, order.customerEmail || 'NULL');
+
     if (order.status !== 'pending') {
       return NextResponse.json({
         success: true,
@@ -120,6 +122,11 @@ export async function POST(request: NextRequest) {
     });
 
     try {
+      // 解析保存在订单中的多维度配置
+      const parsedSongConfig = order.songConfig
+        ? JSON.parse(order.songConfig)
+        : undefined;
+
       const result = await generateSong({
         recipientName: order.recipientName,
         personality: order.personality,
@@ -127,6 +134,7 @@ export async function POST(request: NextRequest) {
         isPreview: false,
         selectedStyle: order.selectedStyle || order.genre,
         selectedArtistStyle: order.selectedArtistStyle ?? undefined,
+        songConfig: parsedSongConfig,
       });
 
       if (result.success && result.audioUrl) {
@@ -142,22 +150,24 @@ export async function POST(request: NextRequest) {
           },
         });
         console.log(`[${new Date().toISOString()}] Full song generation successful! Order: ${orderId}`);
-        
-        const emailToSend = order.customerEmail || customerEmail;
-        if (emailToSend) {
+
+        // 邮箱可选：仅在用户提供了邮箱时才发送邮件
+        if (order.customerEmail) {
           try {
             await sendSongEmail({
-              email: emailToSend,
+              email: order.customerEmail,
               recipientName: order.recipientName,
               audioUrl: result.audioUrl!,
               title: result.title,
               lyrics: result.lyrics,
               orderId: orderId,
             });
-            console.log(`[${new Date().toISOString()}] Email sent successfully to: ${emailToSend}`);
+            console.log(`[${new Date().toISOString()}] Email sent successfully to: ${order.customerEmail}`);
           } catch (emailError) {
             console.error(`[${new Date().toISOString()}] Failed to send email:`, emailError);
           }
+        } else {
+          console.log(`[${new Date().toISOString()}] No email provided for order ${orderId}, skipping email send`);
         }
       } else {
         await prisma.order.update({

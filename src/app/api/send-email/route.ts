@@ -4,7 +4,7 @@ import { sendSongEmail } from '@/lib/email';
 
 const sendEmailSchema = z.object({
   email: z.string().email(),
-  audioUrl: z.string().url(),
+  audioUrl: z.string(),
   title: z.string().optional(),
   lyrics: z.string().optional(),
 });

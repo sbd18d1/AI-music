@@ -16,6 +16,7 @@ model Order {
   customerEmail      String?
   selectedStyle      String?
   selectedArtistStyle String?
+  songConfig         String?
   status             String    @default("pending")
   stripeSessionId    String?
   stripePaymentIntentId String?

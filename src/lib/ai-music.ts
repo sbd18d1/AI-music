@@ -21,6 +21,8 @@ interface GenerateSongParams {
   isPreview?: boolean;            // 是否为预览模式（30秒短片段）
   selectedStyle?: string;         // 用户选择的风格
   selectedArtistStyle?: string;   // 用户选择的致敬乐手风格
+  /** 多维度歌曲配置选择（可选，用于生成更精准的提示词） */
+  songConfig?: import('./song-config').SongConfigSelection;
 }
 
 /**
@@ -144,15 +146,35 @@ function expandPrompt(description: string, selectedStyle: string): string {
 
 /**
  * 组装 Suno API 请求参数
- * 
- * 根据用户的选择，自动组装 style/tags 和 prompt，确保生成的歌曲完美匹配老人们的复古品味。
- * 
+ *
+ * 优先使用多维度配置面板的选择来生成精准提示词；
+ * 如果没有提供 songConfig，则回退到旧的 styleTagMap + expandPrompt 逻辑。
+ *
  * @param params 用户输入参数
  * @returns 组装后的 Suno API 请求参数
  */
 function buildSunoRequest(params: GenerateSongParams): { gpt_description_prompt: string; style_tags: string } {
-  const { personality: description, selectedStyle, selectedArtistStyle, genre, isPreview = false } = params;
+  const { personality: description, selectedStyle, selectedArtistStyle, genre, isPreview = false, songConfig } = params;
 
+  // 优先使用多维度配置面板
+  if (songConfig) {
+    const { buildPrompts } = require('./prompt-builder');
+    const built = buildPrompts(songConfig, description, params.recipientName);
+
+    log('Prompt Engineering (Multi-Dimension Config):', {
+      songConfig,
+      sunoStyleTags: built.sunoStyleTags,
+      lyricSystemInstruction: built.lyricSystemInstruction,
+      gptDescriptionPrompt: built.gptDescriptionPrompt,
+    });
+
+    return {
+      gpt_description_prompt: built.gptDescriptionPrompt,
+      style_tags: built.sunoStyleTags,
+    };
+  }
+
+  // 回退：旧的拼接逻辑
   const effectiveStyle = selectedStyle || genre || 'Classic Rock';
   const styleTags = styleTagMap[effectiveStyle] || styleTagMap['Classic Rock'];
   const artistTags = selectedArtistStyle && selectedArtistStyle !== 'None' 
@@ -162,7 +184,7 @@ function buildSunoRequest(params: GenerateSongParams): { gpt_description_prompt:
   const combinedTags = [styleTags, artistTags].filter(Boolean).join(', ');
   const expandedPrompt = expandPrompt(description, effectiveStyle);
 
-  log('Prompt Engineering:', {
+  log('Prompt Engineering (Legacy):', {
     userDescription: description,
     selectedStyle: effectiveStyle,
     selectedArtistStyle,
