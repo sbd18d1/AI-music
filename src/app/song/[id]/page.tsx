@@ -40,10 +40,10 @@ export async function generateMetadata(
         title: order.title || `${order.recipientName}'s Song`,
         recipientName: order.recipientName,
         genre: order.genre,
-        audioUrl: order.audioUrl,
-        lyrics: order.lyrics,
-        coverImageUrl: order.coverImageUrl,
-        duration: order.duration,
+        audioUrl: order.audioUrl || undefined,
+        lyrics: order.lyrics || undefined,
+        coverImageUrl: order.coverImageUrl || undefined,
+        duration: order.duration || undefined,
         status: order.status,
       };
     }
@@ -118,10 +118,10 @@ async function getSongData(id: string): Promise<SongData> {
     title: order.title || `${order.recipientName}'s Song`,
     recipientName: order.recipientName,
     genre: order.genre,
-    audioUrl: order.audioUrl,
-    lyrics: order.lyrics,
+    audioUrl: order.audioUrl || undefined,
+    lyrics: order.lyrics || undefined,
     coverImageUrl,
-    duration: order.duration,
+    duration: order.duration || undefined,
     status: order.status,
   };
 }

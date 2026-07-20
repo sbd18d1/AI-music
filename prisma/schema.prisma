@@ -1,10 +1,10 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
 }
 
 model Order {
@@ -44,4 +44,38 @@ model TrialUsage {
 
   @@index([ipAddress])
   @@index([usedAt])
+}
+
+model SongConfigDimension {
+  id        String               @id @default(uuid())
+  dimensionId String             @unique
+  title     String
+  subtitle  String?
+  sortOrder Int                  @default(0)
+  options   SongConfigOption[]
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@index([dimensionId])
+  @@index([sortOrder])
+}
+
+model SongConfigOption {
+  id              String               @id @default(uuid())
+  optionId        String               @unique
+  dimensionId     String
+  dimension       SongConfigDimension  @relation(fields: [dimensionId], references: [dimensionId], onDelete: Cascade)
+  icon            String
+  name            String
+  description     String
+  styleTag        String?
+  lyricInstruction String?
+  genreValue      String?
+  sortOrder       Int                  @default(0)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([dimensionId])
+  @@index([optionId])
+  @@index([sortOrder])
 }

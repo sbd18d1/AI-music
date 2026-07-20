@@ -153,13 +153,12 @@ function expandPrompt(description: string, selectedStyle: string): string {
  * @param params 用户输入参数
  * @returns 组装后的 Suno API 请求参数
  */
-function buildSunoRequest(params: GenerateSongParams): { gpt_description_prompt: string; style_tags: string } {
+async function buildSunoRequest(params: GenerateSongParams): Promise<{ gpt_description_prompt: string; style_tags: string }> {
   const { personality: description, selectedStyle, selectedArtistStyle, genre, isPreview = false, songConfig } = params;
 
-  // 优先使用多维度配置面板
   if (songConfig) {
-    const { buildPrompts } = require('./prompt-builder');
-    const built = buildPrompts(songConfig, description, params.recipientName);
+    const { buildPromptsFromDb } = require('./prompt-builder');
+    const built = await buildPromptsFromDb(songConfig, description, params.recipientName);
 
     log('Prompt Engineering (Multi-Dimension Config):', {
       songConfig,
@@ -313,7 +312,7 @@ export async function generateSong(
   log('Using API base URL:', THREE02_AI_BASE_URL);
 
   try {
-    const { gpt_description_prompt, style_tags } = buildSunoRequest(params);
+    const { gpt_description_prompt, style_tags } = await buildSunoRequest(params);
 
     const submitUrl = `${THREE02_AI_BASE_URL}/suno/submit/music`;
 

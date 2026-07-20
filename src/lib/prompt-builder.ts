@@ -14,6 +14,7 @@ import {
   resolveSelection,
   SongConfigOption,
 } from './song-config';
+import { resolveSelectionFromDb, SongConfigOptionDb } from './song-config-db';
 
 /** Suno 风格标签的最大字符数 */
 const MAX_SUNO_STYLE_TAG_LENGTH = 120;
@@ -48,11 +49,13 @@ function truncatePreservingWords(text: string, maxLength: number): string {
  * 来源：维度1（主曲风）+ 维度2（音色部分）+ 维度3（人声）+ 维度4（情感氛围）
  * 注意：维度5（场景）只影响歌词，不进入风格标签。
  */
+type SongConfigOptionLike = SongConfigOption | SongConfigOptionDb;
+
 function buildSunoStyleTags(resolved: {
-  musicStyle?: SongConfigOption;
-  audience?: SongConfigOption;
-  vocalCharacter?: SongConfigOption;
-  emotionalVibe?: SongConfigOption;
+  musicStyle?: SongConfigOptionLike;
+  audience?: SongConfigOptionLike;
+  vocalCharacter?: SongConfigOptionLike;
+  emotionalVibe?: SongConfigOptionLike;
 }): string {
   const parts: string[] = [];
 
@@ -80,25 +83,22 @@ function buildSunoStyleTags(resolved: {
 function buildLyricSystemInstruction(
   userDescription: string,
   resolved: {
-    audience?: SongConfigOption;
-    emotionalVibe?: SongConfigOption;
-    occasion?: SongConfigOption;
+    audience?: SongConfigOptionLike;
+    emotionalVibe?: SongConfigOptionLike;
+    occasion?: SongConfigOptionLike;
   },
   recipientName?: string
 ): string {
   const fragments: string[] = [];
 
-  // 情感基调
   if (resolved.emotionalVibe?.lyricInstruction) {
     fragments.push(resolved.emotionalVibe.lyricInstruction);
   }
 
-  // 场景目的
   if (resolved.occasion?.lyricInstruction) {
     fragments.push(resolved.occasion.lyricInstruction);
   }
 
-  // 受众 / 年龄段
   if (resolved.audience?.lyricInstruction) {
     fragments.push(resolved.audience.lyricInstruction);
   }
@@ -127,9 +127,9 @@ function buildLyricSystemInstruction(
 function buildGptDescriptionPrompt(
   userDescription: string,
   resolved: {
-    musicStyle?: SongConfigOption;
-    vocalCharacter?: SongConfigOption;
-    emotionalVibe?: SongConfigOption;
+    musicStyle?: SongConfigOptionLike;
+    vocalCharacter?: SongConfigOptionLike;
+    emotionalVibe?: SongConfigOptionLike;
   },
   recipientName?: string
 ): string {
@@ -175,6 +175,32 @@ export function buildPrompts(
   recipientName?: string
 ): BuiltPrompts {
   const resolved = resolveSelection(selection);
+
+  const sunoStyleTags = buildSunoStyleTags(resolved);
+  const lyricSystemInstruction = buildLyricSystemInstruction(
+    userDescription,
+    resolved,
+    recipientName
+  );
+  const gptDescriptionPrompt = buildGptDescriptionPrompt(
+    userDescription,
+    resolved,
+    recipientName
+  );
+
+  return {
+    sunoStyleTags,
+    lyricSystemInstruction,
+    gptDescriptionPrompt,
+  };
+}
+
+export async function buildPromptsFromDb(
+  selection: SongConfigSelection,
+  userDescription: string,
+  recipientName?: string
+): Promise<BuiltPrompts> {
+  const resolved = await resolveSelectionFromDb(selection);
 
   const sunoStyleTags = buildSunoStyleTags(resolved);
   const lyricSystemInstruction = buildLyricSystemInstruction(

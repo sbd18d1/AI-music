@@ -1,87 +1,172 @@
 'use client';
 
-import { useState } from 'react';
-import { Check, X, Settings2, ChevronRight } from 'lucide-react';
-import {
-  ALL_DIMENSIONS,
-  SongConfigSelection,
-  SongConfigDimension,
-  resolveSelection,
-} from '@/lib/song-config';
+import { useState, useEffect } from 'react';
+import { Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { SongConfigSelection, ALL_DIMENSIONS } from '@/lib/song-config';
+
+export interface SongConfigOption {
+  id: string;
+  icon: string;
+  name: string;
+  description: string;
+  styleTag?: string;
+  lyricInstruction?: string;
+  genreValue?: string;
+}
+
+export interface SongConfigDimension {
+  id: string;
+  title: string;
+  subtitle?: string;
+  options: SongConfigOption[];
+}
 
 interface SongConfigPanelProps {
-  /** 当前选择 */
   selection: SongConfigSelection;
-  /** 选择更新回调 */
   onChange: (selection: SongConfigSelection) => void;
 }
 
-/**
- * 单个维度的单选按钮组
- * 严格互斥：同一维度内只能选中一个，再次点击已选项可取消选择。
- */
 function DimensionGroup({
   dimension,
   selectedId,
   onSelect,
+  isExpanded,
+  onToggle,
 }: {
   dimension: SongConfigDimension;
   selectedId: string;
   onSelect: (optionId: string) => void;
+  isExpanded: boolean;
+  onToggle: () => void;
 }) {
+  const isSelected = !!selectedId;
+
   return (
-    <div>
-      <label className="block text-deep-navy/80 font-semibold mb-2 text-xl">
-        {dimension.title}
-      </label>
-      {dimension.subtitle && (
-        <p className="text-deep-navy/60 text-lg mb-4">{dimension.subtitle}</p>
+    <div className={`border-2 rounded-lg transition-all ${
+      isSelected
+        ? 'border-burgundy-wine bg-burgundy-wine/5'
+        : 'border-deep-navy/30 bg-warm-cream'
+    }`}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between p-5 text-left"
+      >
+        <div>
+          <div className="flex items-center gap-3">
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-sm ${
+              isSelected ? 'bg-warm-green text-white' : 'bg-deep-navy/20 text-deep-navy/40'
+            }`}>
+              {isSelected ? '✓' : ''}
+            </span>
+            <h3 className="text-xl font-bold text-deep-navy">
+              {dimension.title}
+            </h3>
+          </div>
+          {dimension.subtitle && (
+            <p className="text-lg text-deep-navy/60 mt-1 pl-9">
+              {dimension.subtitle}
+            </p>
+          )}
+        </div>
+        {isExpanded ? (
+          <ChevronUp className="w-6 h-6 text-deep-navy/60" />
+        ) : (
+          <ChevronDown className="w-6 h-6 text-deep-navy/60" />
+        )}
+      </button>
+
+      {isExpanded && (
+        <div className="px-5 pb-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {dimension.options.map((option) => {
+              const optIsSelected = selectedId === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={optIsSelected}
+                  onClick={() => onSelect(optIsSelected ? '' : option.id)}
+                  className={`text-center p-5 rounded-lg border-2 cursor-pointer transition-all text-left ${
+                    optIsSelected
+                      ? 'border-burgundy-wine bg-burgundy-wine/5 shadow-retro-sm'
+                      : 'border-deep-navy/30 bg-white hover:border-deep-navy'
+                  }`}
+                >
+                  <div className="text-4xl mb-3">{option.icon}</div>
+                  <h4 className="text-xl font-semibold text-deep-navy mb-1">
+                    {option.name}
+                  </h4>
+                  <p className="text-lg text-deep-navy/60">{option.description}</p>
+                  {optIsSelected && (
+                    <div className="mt-3 w-8 h-8 bg-burgundy-wine rounded-full flex items-center justify-center mx-auto">
+                      <Check className="w-5 h-5 text-white" />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       )}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {dimension.options.map((option) => {
-          const isSelected = selectedId === option.id;
-          return (
-            <button
-              key={option.id}
-              type="button"
-              role="radio"
-              aria-checked={isSelected}
-              onClick={() => onSelect(isSelected ? '' : option.id)}
-              className={`text-center p-5 rounded-lg border-2 cursor-pointer transition-all text-left ${
-                isSelected
-                  ? 'border-burgundy-wine bg-burgundy-wine/5 shadow-retro-sm'
-                  : 'border-deep-navy/30 bg-warm-cream hover:border-deep-navy'
-              }`}
-            >
-              <div className="text-4xl mb-3">{option.icon}</div>
-              <h4 className="text-xl font-semibold text-deep-navy mb-1">
-                {option.name}
-              </h4>
-              <p className="text-lg text-deep-navy/60">{option.description}</p>
-              {isSelected && (
-                <div className="mt-3 w-8 h-8 bg-burgundy-wine rounded-full flex items-center justify-center mx-auto">
-                  <Check className="w-5 h-5 text-white" />
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
 
-/**
- * 歌曲配置面板
- *
- * 主表单只显示一个「Customize Your Song」按钮 + 已选摘要，
- * 点击按钮弹出完整配置弹窗，避免占用过多纵向空间。
- */
 export default function SongConfigPanel({
   selection,
   onChange,
 }: SongConfigPanelProps) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [dimensions, setDimensions] = useState<SongConfigDimension[]>([]);
+  const [expandedDimensions, setExpandedDimensions] = useState<Set<string>>(
+    new Set()
+  );
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchDimensions() {
+      try {
+        const response = await fetch('/api/song-config');
+        const data = await response.json();
+        if (data && data.length > 0) {
+          setDimensions(data);
+          data.forEach((dim: SongConfigDimension) => {
+            setExpandedDimensions((prev) => new Set([...prev, dim.id]));
+          });
+        } else {
+          console.log('No dimensions from API, using fallback');
+          setDimensions(ALL_DIMENSIONS);
+          ALL_DIMENSIONS.forEach((dim) => {
+            setExpandedDimensions((prev) => new Set([...prev, dim.id]));
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch song config:', error);
+        setDimensions(ALL_DIMENSIONS);
+        ALL_DIMENSIONS.forEach((dim) => {
+          setExpandedDimensions((prev) => new Set([...prev, dim.id]));
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchDimensions();
+
+    const timeout = setTimeout(() => {
+      if (isLoading) {
+        console.log('Fetch timeout, using fallback');
+        setDimensions(ALL_DIMENSIONS);
+        ALL_DIMENSIONS.forEach((dim) => {
+          setExpandedDimensions((prev) => new Set([...prev, dim.id]));
+        });
+        setIsLoading(false);
+      }
+    }, 5000);
+
+    return () => clearTimeout(timeout);
+  }, [isLoading]);
 
   const handleSelect = (dimensionId: string, optionId: string) => {
     onChange({
@@ -90,129 +175,54 @@ export default function SongConfigPanel({
     });
   };
 
-  // 统计已选数量
-  const resolved = resolveSelection(selection);
-  const selectedCount = Object.values(resolved).filter(Boolean).length;
-  const totalCount = ALL_DIMENSIONS.length;
+  const toggleDimension = (dimensionId: string) => {
+    setExpandedDimensions((prev) => {
+      const next = new Set(prev);
+      if (next.has(dimensionId)) {
+        next.delete(dimensionId);
+      } else {
+        next.add(dimensionId);
+      }
+      return next;
+    });
+  };
+
+  const selectedCount = Object.values(selection).filter(Boolean).length;
+  const totalCount = dimensions.length;
   const isComplete = selectedCount === totalCount;
 
-  return (
-    <>
-      {/* 主表单上的紧凑触发器 */}
-      <button
-        type="button"
-        onClick={() => setIsModalOpen(true)}
-        className={`w-full flex items-center justify-between p-5 rounded-lg border-2 transition-all ${
-          isComplete
-            ? 'border-burgundy-wine bg-burgundy-wine/5 shadow-retro-sm'
-            : 'border-deep-navy/30 bg-warm-cream hover:border-deep-navy'
-        }`}
-      >
-        <div className="flex items-center gap-4">
-          <Settings2 className={`w-7 h-7 ${isComplete ? 'text-burgundy-wine' : 'text-deep-navy/60'}`} />
-          <div className="text-left">
-            <div className="text-xl font-bold text-deep-navy">
-              {isComplete ? 'Song Settings Ready' : 'Customize Your Song'}
-            </div>
-            <div className="text-lg text-deep-navy/60">
-              {selectedCount}/{totalCount} categories selected
-              {isComplete && ' · Click to review or change'}
-            </div>
-          </div>
-        </div>
-        <ChevronRight className="w-6 h-6 text-deep-navy/60" />
-      </button>
+  if (isLoading) {
+    return (
+      <div className="p-8 text-center">
+        <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-burgundy-wine border-t-transparent" />
+        <p className="mt-4 text-xl text-deep-navy/60">Loading song options...</p>
+      </div>
+    );
+  }
 
-      {/* 维度状态列表：只显示维度名称和完成状态，不显示具体选项内容 */}
-      <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
-        {ALL_DIMENSIONS.map((dim) => {
-          const isDimSelected = !!resolved[dim.id as keyof typeof resolved];
-          return (
-            <div
-              key={dim.id}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-base ${
-                isDimSelected
-                  ? 'border-burgundy-wine/40 bg-burgundy-wine/5 text-deep-navy'
-                  : 'border-deep-navy/20 bg-warm-cream/50 text-deep-navy/50'
-              }`}
-            >
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${isDimSelected ? 'bg-warm-green text-white' : 'bg-deep-navy/20'}`}>
-                {isDimSelected ? '✓' : ''}
-              </span>
-              <span className="font-medium truncate">{dim.title}</span>
-            </div>
-          );
-        })}
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="font-serif text-2xl font-bold text-deep-navy">
+          Customize Your Song
+        </h2>
+        <span className={`text-lg font-semibold ${
+          isComplete ? 'text-warm-green' : 'text-deep-navy/60'
+        }`}>
+          {selectedCount}/{totalCount} selections
+        </span>
       </div>
 
-      {/* 配置弹窗 */}
-      {isModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-deep-navy/60"
-          onClick={() => setIsModalOpen(false)}
-        >
-          <div
-            className="bg-white border-2 border-deep-navy rounded-lg shadow-retro-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* 弹窗头部 */}
-            <div className="sticky top-0 bg-white border-b-2 border-deep-navy/20 p-6 flex items-center justify-between z-10">
-              <div>
-                <h3 className="font-serif text-2xl font-bold text-deep-navy">
-                  Fine-Tune Your Song
-                </h3>
-                <p className="text-deep-navy/60 text-lg">
-                  Pick one option from each category below ({selectedCount}/{totalCount} done)
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="p-2 rounded-lg hover:bg-warm-cream transition-colors"
-                aria-label="Close"
-              >
-                <X className="w-7 h-7 text-deep-navy" />
-              </button>
-            </div>
-
-            {/* 弹窗内容：5 个维度 */}
-            <div className="p-6 space-y-8">
-              {ALL_DIMENSIONS.map((dimension) => (
-                <DimensionGroup
-                  key={dimension.id}
-                  dimension={dimension}
-                  selectedId={selection[dimension.id as keyof SongConfigSelection]}
-                  onSelect={(optionId) => handleSelect(dimension.id, optionId)}
-                />
-              ))}
-            </div>
-
-            {/* 弹窗底部 */}
-            <div className="sticky bottom-0 bg-white border-t-2 border-deep-navy/20 p-6 flex items-center justify-between gap-4">
-              <div className="text-lg text-deep-navy/70">
-                {isComplete ? (
-                  <span className="flex items-center gap-2 text-warm-green font-semibold">
-                    <Check className="w-5 h-5" /> All set! You can close this window.
-                  </span>
-                ) : (
-                  <span>Please select {totalCount - selectedCount} more categor{totalCount - selectedCount === 1 ? 'y' : 'ies'}.</span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className={`px-8 py-4 rounded-lg font-bold text-xl border-2 border-deep-navy transition-all ${
-                  isComplete
-                    ? 'bg-burgundy-wine text-white hover:bg-burgundy-wine/80 shadow-retro-sm'
-                    : 'bg-warm-cream text-deep-navy hover:bg-warm-amber'
-                }`}
-              >
-                {isComplete ? 'Done' : 'Close'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+      {dimensions.map((dimension) => (
+        <DimensionGroup
+          key={dimension.id}
+          dimension={dimension}
+          selectedId={selection[dimension.id as keyof SongConfigSelection] || ''}
+          onSelect={(optionId) => handleSelect(dimension.id, optionId)}
+          isExpanded={expandedDimensions.has(dimension.id)}
+          onToggle={() => toggleDimension(dimension.id)}
+        />
+      ))}
+    </div>
   );
 }
