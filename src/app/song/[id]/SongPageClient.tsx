@@ -1,7 +1,6 @@
 'use client';
 
-import { Music, Clock, ArrowLeft, Play, Pause } from 'lucide-react';
-import { useState, useRef } from 'react';
+import { Music, Clock, ArrowLeft } from 'lucide-react';
 
 interface SongData {
   id: string;
@@ -16,20 +15,6 @@ interface SongData {
 }
 
 export default function SongPageClient({ songData }: { songData: SongData }) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
-
-  const handlePlayPause = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-warm-cream">
       <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
@@ -76,30 +61,7 @@ export default function SongPageClient({ songData }: { songData: SongData }) {
 
           <div className="bg-warm-cream border-2 border-deep-navy rounded-lg p-6 mb-8">
             {songData.audioUrl ? (
-              <div className="flex flex-col items-center">
-                <audio
-                  ref={audioRef}
-                  src={songData.audioUrl}
-                  className="w-full"
-                  controlsList="nodownload"
-                />
-                <button
-                  onClick={handlePlayPause}
-                  className="mt-4 bg-paypal-gold hover:bg-warm-amber text-deep-navy font-bold py-3 px-8 rounded-lg border-2 border-deep-navy shadow-retro-sm hover:shadow-retro transition-all flex items-center gap-2"
-                >
-                  {isPlaying ? (
-                    <>
-                      <Pause className="w-5 h-5" />
-                      Pause
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-5 h-5" />
-                      Play
-                    </>
-                  )}
-                </button>
-              </div>
+              <audio controls controlsList="nodownload" src={songData.audioUrl} className="w-full" />
             ) : (
               <div className="text-center py-8">
                 <div className="text-6xl mb-4">🎵</div>

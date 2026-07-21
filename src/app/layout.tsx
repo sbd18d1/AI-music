@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { getThemeName } from '@/lib/theme';
 
 export const metadata: Metadata = {
   title: 'AI Personalized Song Generator',
@@ -21,8 +22,10 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const themeName = getThemeName();
+  
   return (
-    <html lang="en">
+    <html lang="en" data-theme={themeName}>
       <body className="min-h-screen">{children}</body>
     </html>
   );

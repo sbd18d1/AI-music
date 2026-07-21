@@ -2,35 +2,97 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-primary: #881337;
+  --color-secondary: #FFC439;
+  --color-accent: #881337;
+  --color-neutral: #111827;
+  --color-base-100: #FAF6EE;
+  --color-base-200: #F5F0E6;
+  --color-base-300: #E8E0D5;
+  --color-base-content: #111827;
+  --color-info: #38bdf8;
+  --color-success: #22C55E;
+  --color-warning: #F2A716;
+  --color-error: #EF4444;
+}
+
+[data-theme="warmRetro"] {
+  --color-primary: #881337;
+  --color-secondary: #FFC439;
+  --color-accent: #881337;
+  --color-neutral: #111827;
+  --color-base-100: #FAF6EE;
+  --color-base-200: #F5F0E6;
+  --color-base-300: #E8E0D5;
+  --color-base-content: #111827;
+  --color-info: #38bdf8;
+  --color-success: #22C55E;
+  --color-warning: #F2A716;
+  --color-error: #EF4444;
+}
+
+[data-theme="modern"] {
+  --color-primary: #0ea5e9;
+  --color-secondary: #6366f1;
+  --color-accent: #0ea5e9;
+  --color-neutral: #1f2937;
+  --color-base-100: #111827;
+  --color-base-200: #1f2937;
+  --color-base-300: #374151;
+  --color-base-content: #ffffff;
+  --color-info: #38bdf8;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+}
+
+[data-theme="vintageWarm"] {
+  --color-primary: #722F37;
+  --color-secondary: #C9A962;
+  --color-accent: #722F37;
+  --color-neutral: #4A4A4A;
+  --color-base-100: #F5F0E6;
+  --color-base-200: #E8E0D5;
+  --color-base-300: #D4CAC0;
+  --color-base-content: #4A4A4A;
+  --color-info: #5B8FF9;
+  --color-success: #4A7C59;
+  --color-warning: #C9A962;
+  --color-error: #A52A2A;
+}
+
+[data-theme="warmVintageGold"] {
+  --color-primary: #B8964E;
+  --color-secondary: #D4AF37;
+  --color-accent: #8B7355;
+  --color-neutral: #5C5040;
+  --color-base-100: #FDF8E8;
+  --color-base-200: #F5EED9;
+  --color-base-300: #E8DCC2;
+  --color-base-content: #3D352A;
+  --color-info: #5B8FF9;
+  --color-success: #6B8E4E;
+  --color-warning: #D4AF37;
+  --color-error: #A54A4A;
+}
+
 @layer base {
   * {
     box-sizing: border-box;
   }
   
   body {
-    @apply bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 min-h-screen;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 }
 
 @layer components {
-  .glass-card {
-    @apply bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl;
-  }
-  
   .btn-primary {
-    @apply bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl;
+    @apply bg-primary text-white font-semibold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg;
   }
   
   .input-field {
-    @apply w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-400/20 transition-all duration-300;
-  }
-  
-  .genre-card {
-    @apply glass-card p-6 cursor-pointer transition-all duration-300 transform hover:scale-105 hover:border-primary-400 hover:shadow-xl hover:shadow-primary-500/10;
-  }
-  
-  .genre-card.selected {
-    @apply border-primary-500 bg-primary-500/20 shadow-xl shadow-primary-500/20;
+    @apply w-full px-4 py-3 bg-base-200 border border-base-300 rounded-xl text-base-content placeholder-base-content/50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-300;
   }
 }

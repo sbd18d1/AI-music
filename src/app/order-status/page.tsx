@@ -222,12 +222,8 @@ export default function OrderStatus() {
             {order.title && <h4 className="font-serif text-xl font-semibold text-deep-navy mb-4">{order.title}</h4>}
             
             {order.audioUrl && (
-              <div className="bg-warm-cream border-2 border-deep-navy rounded-lg p-6 mb-6 shadow-card">
-                <audio
-                  controls
-                  src={order.audioUrl}
-                  className="w-full"
-                />
+              <div className="bg-warm-cream border-2 border-deep-navy rounded-lg p-6 mb-6">
+                <audio controls src={order.audioUrl} className="w-full" />
                 <button
                   onClick={async () => {
                     try {
