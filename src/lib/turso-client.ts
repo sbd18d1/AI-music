@@ -1,9 +1,4 @@
-import { PrismaClient } from '../generated/prisma/client';
-import { PrismaLibSql } from '@prisma/adapter-libsql';
-
-declare global {
-  var prisma: PrismaClient | undefined;
-}
+import { createClient, type Client } from '@libsql/client';
 
 function getDatabaseUrl(): string {
   const url = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL;
@@ -31,13 +26,11 @@ function getAuthToken(): string | undefined {
   return undefined;
 }
 
-const adapter = new PrismaLibSql({
+export const tursoClient: Client = createClient({
   url: getDatabaseUrl(),
   authToken: getAuthToken(),
 });
 
-export const prisma = global.prisma || new PrismaClient({ adapter });
-
-if (process.env.NODE_ENV !== 'production') {
-  global.prisma = prisma;
+export function getTursoClient(): Client {
+  return tursoClient;
 }

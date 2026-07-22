@@ -144,13 +144,13 @@ export async function POST(request: NextRequest) {
       if (order.customerEmail) {
         try {
           await sendSongEmail({
-            email: order.customerEmail,
-            recipientName: order.recipientName,
-            audioUrl: existingTrialOrder.audioUrl!,
-            title: existingTrialOrder.title,
-            lyrics: existingTrialOrder.lyrics,
-            orderId: orderId,
-          });
+                email: order.customerEmail,
+                recipientName: order.recipientName,
+                audioUrl: existingTrialOrder.audioUrl!,
+                title: existingTrialOrder.title || undefined,
+                lyrics: existingTrialOrder.lyrics || undefined,
+                orderId: orderId,
+              });
           console.log(`[${new Date().toISOString()}] Email sent successfully to: ${order.customerEmail}`);
         } catch (emailError) {
           console.error(`[${new Date().toISOString()}] Failed to send email:`, emailError);

@@ -1,4 +1,4 @@
-import { createClient } from '@libsql/client';
+import { tursoClient } from './turso-client';
 import { SongConfigSelection } from './song-config';
 
 export interface SongConfigOptionDb {
@@ -11,7 +11,7 @@ export interface SongConfigOptionDb {
   genreValue?: string;
 }
 
-const getClient = () => createClient({ url: process.env.DATABASE_URL || '' });
+const getClient = () => tursoClient;
 
 export async function resolveSelectionFromDb(
   selection: SongConfigSelection

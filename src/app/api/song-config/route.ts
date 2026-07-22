@@ -1,9 +1,9 @@
-import { createClient } from '@libsql/client';
+import { tursoClient } from '@/lib/turso-client';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const client = createClient({ url: process.env.DATABASE_URL || '' });
+    const client = tursoClient;
     
     const dimsResult = await client.execute(
       'SELECT * FROM "SongConfigDimension" ORDER BY "sortOrder"'
