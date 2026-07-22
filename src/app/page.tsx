@@ -173,33 +173,46 @@ export default function Home() {
 
       const data = await response.json();
 
-      if (data.success && data.audioUrl) {
-        setAudioUrl(data.audioUrl);
-        setIsPreview(data.isPreview || true);
-        setSongTitle(data.title || '');
-        setSongLyrics(data.lyrics || '');
-        setCoverImageUrl(data.coverImageUrl || '');
-        setSongDuration(data.duration || '');
-        setOrderId(data.orderId || '');
-        setShowResult(true);
-        
-        deliveryStrategy.saveSongData({
-          audioUrl: data.audioUrl,
-          isPreview: data.isPreview || true,
-          title: data.title || '',
-          lyrics: data.lyrics || '',
-          coverImageUrl: data.coverImageUrl || '',
-          duration: data.duration || '',
-        });
-        
-        if (DELIVERY_MODE === 'SESSION_LOCK') {
-          const deviceToken = deliveryStrategy.getDeviceToken() || deliveryStrategy.generateDeviceToken();
-          deliveryStrategy.saveDeviceSession({
-            deviceToken,
+      if (data.success) {
+        if (data.status === 'generating' && data.taskId) {
+          setIsLoading(true);
+          setShowResult(false);
+          await pollGenerationStatus(data.taskId);
+        } else if (data.audioUrl) {
+          setAudioUrl(data.audioUrl);
+          setIsPreview(data.isPreview || true);
+          setSongTitle(data.title || '');
+          setSongLyrics(data.lyrics || '');
+          setCoverImageUrl(data.coverImageUrl || '');
+          setSongDuration(data.duration || '');
+          setOrderId(data.orderId || '');
+          setShowResult(true);
+          
+          deliveryStrategy.saveSongData({
             audioUrl: data.audioUrl,
+            isPreview: data.isPreview || true,
             title: data.title || '',
-            status: 'unpaid',
+            lyrics: data.lyrics || '',
+            coverImageUrl: data.coverImageUrl || '',
+            duration: data.duration || '',
           });
+          
+          if (DELIVERY_MODE === 'SESSION_LOCK') {
+            const deviceToken = deliveryStrategy.getDeviceToken() || deliveryStrategy.generateDeviceToken();
+            deliveryStrategy.saveDeviceSession({
+              deviceToken,
+              audioUrl: data.audioUrl,
+              title: data.title || '',
+              status: 'unpaid',
+            });
+          }
+        } else {
+          let errorMsg = data.error || 'Failed to generate song';
+          if (typeof errorMsg === 'object') {
+            errorMsg = errorMsg.message || errorMsg.message_cn || JSON.stringify(errorMsg);
+          }
+          setErrorMessage(errorMsg);
+          setShowResult(true);
         }
       } else {
         let errorMsg = data.error || 'Failed to generate song';
@@ -216,6 +229,63 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const pollGenerationStatus = async (taskId: string) => {
+    const maxRetries = 60;
+    const delay = 5000;
+
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        const response = await fetch(`/api/generate-status/${taskId}`);
+        const data = await response.json();
+
+        if (data.success) {
+          if (data.status === 'completed' && data.audioUrl) {
+            setAudioUrl(data.audioUrl);
+            setIsPreview(data.isPreview || true);
+            setSongTitle(data.title || '');
+            setSongLyrics(data.lyrics || '');
+            setCoverImageUrl(data.coverImageUrl || '');
+            setSongDuration(data.duration || '');
+            setOrderId(data.orderId || '');
+            setShowResult(true);
+            
+            deliveryStrategy.saveSongData({
+              audioUrl: data.audioUrl,
+              isPreview: data.isPreview || true,
+              title: data.title || '',
+              lyrics: data.lyrics || '',
+              coverImageUrl: data.coverImageUrl || '',
+              duration: data.duration || '',
+            });
+            
+            if (DELIVERY_MODE === 'SESSION_LOCK') {
+              const deviceToken = deliveryStrategy.getDeviceToken() || deliveryStrategy.generateDeviceToken();
+              deliveryStrategy.saveDeviceSession({
+                deviceToken,
+                audioUrl: data.audioUrl,
+                title: data.title || '',
+                status: 'unpaid',
+              });
+            }
+            return;
+          } else if (data.status === 'failed') {
+            setErrorMessage(data.error || 'Generation failed');
+            setShowResult(true);
+            return;
+          }
+        }
+        
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } catch (error) {
+        console.error('Polling error:', error);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+
+    setErrorMessage('Generation timeout');
+    setShowResult(true);
   };
 
   const handleBuyWithEmail = (email: string) => {

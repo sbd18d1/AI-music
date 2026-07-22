@@ -115,7 +115,27 @@ export async function POST(request: NextRequest) {
       selectedStyle,
       selectedArtistStyle,
       songConfig,
+      waitForResult: AI_GENERATION_MODE === 'mock',
     });
+
+    if (aiResponse.success && aiResponse.requestId && !aiResponse.audioUrl) {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          status: 'generating',
+          aiRequestId: aiResponse.requestId,
+        },
+      });
+
+      console.log(`[${new Date().toISOString()}] Trial submitted for IP: ${ipAddress}, order: ${order.id}, taskId: ${aiResponse.requestId}`);
+
+      return NextResponse.json({
+        success: true,
+        status: 'generating',
+        taskId: aiResponse.requestId,
+        orderId: order.id,
+      });
+    }
 
     if (aiResponse.success && aiResponse.audioUrl) {
       if (AI_GENERATION_MODE !== 'mock') {

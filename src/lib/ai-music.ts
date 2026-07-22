@@ -15,14 +15,16 @@
  * 生成歌曲的参数接口
  */
 interface GenerateSongParams {
-  recipientName: string;           // 接收人姓名
-  personality: string;            // 特点/故事背景
+  recipientName: string;          // 接收人姓名
+  personality: string;            // 用户的个性描述/故事
   genre: string;                  // 曲风
   isPreview?: boolean;            // 是否为预览模式（30秒短片段）
   selectedStyle?: string;         // 用户选择的风格
   selectedArtistStyle?: string;   // 用户选择的致敬乐手风格
   /** 多维度歌曲配置选择（可选，用于生成更精准的提示词） */
   songConfig?: import('./song-config').SongConfigSelection;
+  /** 是否等待生成结果（默认 true，设置为 false 时只提交请求并返回 task_id） */
+  waitForResult?: boolean;
 }
 
 /**
@@ -45,6 +47,7 @@ const AI_GENERATION_MODE = process.env.NEXT_PUBLIC_AI_GENERATION_MODE || 'mock';
 
 import fs from 'fs';
 import path from 'path';
+import { buildPromptsFromDb } from './prompt-builder';
 
 const TEST_DATA_PATH = path.join(process.cwd(), 'test-song-data.json');
 const PUBLIC_AUDIO_PATH = path.join(process.cwd(), 'public', 'test-song.mp3');
@@ -157,7 +160,6 @@ async function buildSunoRequest(params: GenerateSongParams): Promise<{ gpt_descr
   const { personality: description, selectedStyle, selectedArtistStyle, genre, isPreview = false, songConfig } = params;
 
   if (songConfig) {
-    const { buildPromptsFromDb } = require('./prompt-builder');
     const built = await buildPromptsFromDb(songConfig, description, params.recipientName);
 
     log('Prompt Engineering (Multi-Dimension Config):', {
@@ -424,18 +426,36 @@ export async function generateSong(
     // 提取任务 ID，用于轮询结果
     if (data.data && typeof data.data === 'string') {
       log('Received task_id from data.data:', data.data);
+      if (params.waitForResult === false) {
+        return {
+          success: true,
+          requestId: data.data,
+        };
+      }
       const result = await pollForResult(data.data);
       return result;
     }
 
     if (data.data && data.data.task_id) {
       log('Received task_id from data.data.task_id:', data.data.task_id);
+      if (params.waitForResult === false) {
+        return {
+          success: true,
+          requestId: data.data.task_id,
+        };
+      }
       const result = await pollForResult(data.data.task_id);
       return result;
     }
 
     if (data.task_id) {
       log('Received task_id (direct):', data.task_id);
+      if (params.waitForResult === false) {
+        return {
+          success: true,
+          requestId: data.task_id,
+        };
+      }
       const result = await pollForResult(data.task_id);
       return result;
     }
@@ -482,7 +502,7 @@ export async function generateSong(
  * @param taskId 任务 ID
  * @returns 生成响应
  */
-async function pollForResult(taskId: string): Promise<GenerateSongResponse> {
+export async function pollForResult(taskId: string): Promise<GenerateSongResponse> {
   const maxRetries = 60;    // 最大重试次数（5分钟）
   const delay = 5000;       // 轮询间隔（5秒）
 
