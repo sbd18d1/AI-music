@@ -113,75 +113,118 @@ export async function POST(request: NextRequest) {
       console.log(`[${new Date().toISOString()}] PayPal payment captured:`, paypalOrderId);
     }
 
-    await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        status: 'processing',
-        paypalOrderId: paypalOrderId,
-      },
-    });
-
-    try {
-      // 解析保存在订单中的多维度配置
-      const parsedSongConfig = order.songConfig
-        ? JSON.parse(order.songConfig)
-        : undefined;
-
-      const result = await generateSong({
-        recipientName: order.recipientName,
+    const existingTrialOrder = await prisma.order.findFirst({
+      where: {
         personality: order.personality,
         genre: order.genre,
-        isPreview: false,
-        selectedStyle: order.selectedStyle || order.genre,
-        selectedArtistStyle: order.selectedArtistStyle ?? undefined,
-        songConfig: parsedSongConfig,
+        recipientName: order.recipientName,
+        status: 'success',
+        isFullVersion: false,
+        audioUrl: { not: null },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existingTrialOrder && existingTrialOrder.audioUrl) {
+      console.log(`[${new Date().toISOString()}] Using existing trial song for order: ${orderId}`);
+      
+      await prisma.order.update({
+        where: { id: orderId },
+        data: {
+          status: 'success',
+          paypalOrderId: paypalOrderId,
+          audioUrl: existingTrialOrder.audioUrl,
+          lyrics: existingTrialOrder.lyrics,
+          title: existingTrialOrder.title,
+          coverImageUrl: existingTrialOrder.coverImageUrl,
+          duration: existingTrialOrder.duration,
+        },
       });
 
-      if (result.success && result.audioUrl) {
-        await prisma.order.update({
-          where: { id: orderId },
-          data: {
-            status: 'success',
-            audioUrl: result.audioUrl,
-            lyrics: result.lyrics || null,
-            title: result.title || null,
-            coverImageUrl: result.coverImageUrl || null,
-            duration: result.duration || null,
-          },
-        });
-        console.log(`[${new Date().toISOString()}] Full song generation successful! Order: ${orderId}`);
+      if (order.customerEmail) {
+        try {
+          await sendSongEmail({
+            email: order.customerEmail,
+            recipientName: order.recipientName,
+            audioUrl: existingTrialOrder.audioUrl!,
+            title: existingTrialOrder.title,
+            lyrics: existingTrialOrder.lyrics,
+            orderId: orderId,
+          });
+          console.log(`[${new Date().toISOString()}] Email sent successfully to: ${order.customerEmail}`);
+        } catch (emailError) {
+          console.error(`[${new Date().toISOString()}] Failed to send email:`, emailError);
+        }
+      }
+    } else {
+      console.log(`[${new Date().toISOString()}] No existing trial song found, generating new song for order: ${orderId}`);
+      
+      await prisma.order.update({
+        where: { id: orderId },
+        data: {
+          status: 'processing',
+          paypalOrderId: paypalOrderId,
+        },
+      });
 
-        // 邮箱可选：仅在用户提供了邮箱时才发送邮件
-        if (order.customerEmail) {
-          try {
-            await sendSongEmail({
-              email: order.customerEmail,
-              recipientName: order.recipientName,
-              audioUrl: result.audioUrl!,
-              title: result.title,
-              lyrics: result.lyrics,
-              orderId: orderId,
-            });
-            console.log(`[${new Date().toISOString()}] Email sent successfully to: ${order.customerEmail}`);
-          } catch (emailError) {
-            console.error(`[${new Date().toISOString()}] Failed to send email:`, emailError);
+      try {
+        const parsedSongConfig = order.songConfig
+          ? JSON.parse(order.songConfig)
+          : undefined;
+
+        const result = await generateSong({
+          recipientName: order.recipientName,
+          personality: order.personality,
+          genre: order.genre,
+          isPreview: false,
+          selectedStyle: order.selectedStyle || order.genre,
+          selectedArtistStyle: order.selectedArtistStyle ?? undefined,
+          songConfig: parsedSongConfig,
+        });
+
+        if (result.success && result.audioUrl) {
+          await prisma.order.update({
+            where: { id: orderId },
+            data: {
+              status: 'success',
+              audioUrl: result.audioUrl,
+              lyrics: result.lyrics || null,
+              title: result.title || null,
+              coverImageUrl: result.coverImageUrl || null,
+              duration: result.duration || null,
+            },
+          });
+          console.log(`[${new Date().toISOString()}] Full song generation successful! Order: ${orderId}`);
+
+          if (order.customerEmail) {
+            try {
+              await sendSongEmail({
+                email: order.customerEmail,
+                recipientName: order.recipientName,
+                audioUrl: result.audioUrl!,
+                title: result.title,
+                lyrics: result.lyrics,
+                orderId: orderId,
+              });
+              console.log(`[${new Date().toISOString()}] Email sent successfully to: ${order.customerEmail}`);
+            } catch (emailError) {
+              console.error(`[${new Date().toISOString()}] Failed to send email:`, emailError);
+            }
           }
         } else {
-          console.log(`[${new Date().toISOString()}] No email provided for order ${orderId}, skipping email send`);
+          await prisma.order.update({
+            where: { id: orderId },
+            data: { status: 'failed' },
+          });
+          console.error(`[${new Date().toISOString()}] Full song generation failed! Order: ${orderId}`);
         }
-      } else {
+      } catch (generationError) {
+        console.error(`[${new Date().toISOString()}] Full song generation exception:`, generationError);
         await prisma.order.update({
           where: { id: orderId },
           data: { status: 'failed' },
         });
-        console.error(`[${new Date().toISOString()}] Full song generation failed! Order: ${orderId}`);
       }
-    } catch (generationError) {
-      console.error(`[${new Date().toISOString()}] Full song generation exception:`, generationError);
-      await prisma.order.update({
-        where: { id: orderId },
-        data: { status: 'failed' },
-      });
     }
 
     return NextResponse.json({

@@ -91,37 +91,79 @@ export async function POST(request: NextRequest) {
       console.log(`[${new Date().toISOString()}] PayPal payment captured:`, captureData.id);
       console.log(`[${new Date().toISOString()}] Customer email:`, customerEmail);
 
-      try {
-        const result = await generateSong({
-          recipientName: order.recipientName,
+      const existingTrialOrder = await prisma.order.findFirst({
+        where: {
           personality: order.personality,
           genre: order.genre,
-          isPreview: false,
-        });
+          recipientName: order.recipientName,
+          status: 'success',
+          isFullVersion: false,
+          audioUrl: { not: null },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
 
-        if (result.success && result.audioUrl) {
-          await prisma.order.update({
-            where: { id: orderId },
-            data: {
-              status: 'success',
-              audioUrl: result.audioUrl,
-              customerEmail: customerEmail || null,
-            },
+      if (existingTrialOrder && existingTrialOrder.audioUrl) {
+        console.log(`[${new Date().toISOString()}] Using existing trial song for order: ${orderId}`);
+        
+        await prisma.order.update({
+          where: { id: orderId },
+          data: {
+            status: 'success',
+            audioUrl: existingTrialOrder.audioUrl,
+            lyrics: existingTrialOrder.lyrics,
+            title: existingTrialOrder.title,
+            coverImageUrl: existingTrialOrder.coverImageUrl,
+            duration: existingTrialOrder.duration,
+            customerEmail: customerEmail || null,
+          },
+        });
+      } else {
+        console.log(`[${new Date().toISOString()}] No existing trial song found, generating new song for order: ${orderId}`);
+        
+        try {
+          const parsedSongConfig = order.songConfig
+            ? JSON.parse(order.songConfig)
+            : undefined;
+
+          const result = await generateSong({
+            recipientName: order.recipientName,
+            personality: order.personality,
+            genre: order.genre,
+            isPreview: false,
+            selectedStyle: order.selectedStyle || order.genre,
+            selectedArtistStyle: order.selectedArtistStyle ?? undefined,
+            songConfig: parsedSongConfig,
           });
-          console.log(`[${new Date().toISOString()}] Full song generation successful! Order: ${orderId}`);
-        } else {
+
+          if (result.success && result.audioUrl) {
+            await prisma.order.update({
+              where: { id: orderId },
+              data: {
+                status: 'success',
+                audioUrl: result.audioUrl,
+                lyrics: result.lyrics || null,
+                title: result.title || null,
+                coverImageUrl: result.coverImageUrl || null,
+                duration: result.duration || null,
+                customerEmail: customerEmail || null,
+              },
+            });
+            console.log(`[${new Date().toISOString()}] Full song generation successful! Order: ${orderId}`);
+          } else {
+            await prisma.order.update({
+              where: { id: orderId },
+              data: { status: 'failed' },
+            });
+            console.error(`[${new Date().toISOString()}] Full song generation failed! Order: ${orderId}`);
+          }
+        } catch (generationError) {
+          console.error(`[${new Date().toISOString()}] Full song generation exception:`, generationError);
           await prisma.order.update({
             where: { id: orderId },
             data: { status: 'failed' },
           });
-          console.error(`[${new Date().toISOString()}] Full song generation failed! Order: ${orderId}`);
         }
-      } catch (generationError) {
-        console.error(`[${new Date().toISOString()}] Full song generation exception:`, generationError);
-        await prisma.order.update({
-          where: { id: orderId },
-          data: { status: 'failed' },
-        });
       }
     }
 

@@ -570,16 +570,6 @@ export default function Home() {
                       controlsList={deliveryStrategy.shouldHideDownloadButton() ? 'nodownload' : ''}
                       isPreview={deliveryStrategy.shouldHideDownloadButton()}
                     />
-                    
-                    <div className="flex justify-center mt-6">
-                      <button
-                        onClick={handleDownload}
-                        className="inline-flex items-center gap-3 px-8 py-5 bg-secondary text-base-content font-bold rounded-xl text-xl border-2 border-base-content shadow-sm hover:bg-secondary/90 transition-all active:translate-x-1 active:translate-y-1 active:shadow-none"
-                      >
-                        <Download className="w-7 h-7" />
-                        {deliveryStrategy.canDownload() ? 'Download MP3 Now' : 'Download High-Quality MP3 ($4.99)'}
-                      </button>
-                    </div>
                   </div>
 
                   <div className="bg-base-200/80 border border-base-300 rounded-xl p-6 shadow-md">
