@@ -404,6 +404,7 @@ export default function Home() {
               <VintageAudioPlayer 
                 src="/test-song.mp3" 
                 controlsList="nodownload" 
+                isPreview={false}
               />
               <div className="mt-3 text-center">
                 <p className="text-base-content/80 text-base">Song Title: <strong className="text-base-content">Bob on Conroe</strong></p>
@@ -567,6 +568,7 @@ export default function Home() {
                     <VintageAudioPlayer 
                       src={audioUrl} 
                       controlsList={deliveryStrategy.shouldHideDownloadButton() ? 'nodownload' : ''}
+                      isPreview={deliveryStrategy.shouldHideDownloadButton()}
                     />
                     
                     <div className="flex justify-center mt-6">
