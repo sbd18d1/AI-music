@@ -91,6 +91,9 @@ export const OrderScalarFieldEnum = {
   coverImageUrl: 'coverImageUrl',
   duration: 'duration',
   isFullVersion: 'isFullVersion',
+  ipAddress: 'ipAddress',
+  deviceId: 'deviceId',
+  trialOrderId: 'trialOrderId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -101,6 +104,7 @@ export type OrderScalarFieldEnum = (typeof OrderScalarFieldEnum)[keyof typeof Or
 export const TrialUsageScalarFieldEnum = {
   id: 'id',
   ipAddress: 'ipAddress',
+  deviceId: 'deviceId',
   usedAt: 'usedAt'
 } as const
 

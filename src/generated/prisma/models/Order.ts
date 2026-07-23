@@ -45,6 +45,9 @@ export type OrderMinAggregateOutputType = {
   coverImageUrl: string | null
   duration: string | null
   isFullVersion: boolean | null
+  ipAddress: string | null
+  deviceId: string | null
+  trialOrderId: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -70,6 +73,9 @@ export type OrderMaxAggregateOutputType = {
   coverImageUrl: string | null
   duration: string | null
   isFullVersion: boolean | null
+  ipAddress: string | null
+  deviceId: string | null
+  trialOrderId: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -95,6 +101,9 @@ export type OrderCountAggregateOutputType = {
   coverImageUrl: number
   duration: number
   isFullVersion: number
+  ipAddress: number
+  deviceId: number
+  trialOrderId: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -122,6 +131,9 @@ export type OrderMinAggregateInputType = {
   coverImageUrl?: true
   duration?: true
   isFullVersion?: true
+  ipAddress?: true
+  deviceId?: true
+  trialOrderId?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -147,6 +159,9 @@ export type OrderMaxAggregateInputType = {
   coverImageUrl?: true
   duration?: true
   isFullVersion?: true
+  ipAddress?: true
+  deviceId?: true
+  trialOrderId?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -172,6 +187,9 @@ export type OrderCountAggregateInputType = {
   coverImageUrl?: true
   duration?: true
   isFullVersion?: true
+  ipAddress?: true
+  deviceId?: true
+  trialOrderId?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -270,6 +288,9 @@ export type OrderGroupByOutputType = {
   coverImageUrl: string | null
   duration: string | null
   isFullVersion: boolean
+  ipAddress: string | null
+  deviceId: string | null
+  trialOrderId: string | null
   createdAt: Date
   updatedAt: Date
   _count: OrderCountAggregateOutputType | null
@@ -316,6 +337,9 @@ export type OrderWhereInput = {
   coverImageUrl?: Prisma.StringNullableFilter<"Order"> | string | null
   duration?: Prisma.StringNullableFilter<"Order"> | string | null
   isFullVersion?: Prisma.BoolFilter<"Order"> | boolean
+  ipAddress?: Prisma.StringNullableFilter<"Order"> | string | null
+  deviceId?: Prisma.StringNullableFilter<"Order"> | string | null
+  trialOrderId?: Prisma.StringNullableFilter<"Order"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Order"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Order"> | Date | string
 }
@@ -341,6 +365,9 @@ export type OrderOrderByWithRelationInput = {
   coverImageUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   duration?: Prisma.SortOrderInput | Prisma.SortOrder
   isFullVersion?: Prisma.SortOrder
+  ipAddress?: Prisma.SortOrderInput | Prisma.SortOrder
+  deviceId?: Prisma.SortOrderInput | Prisma.SortOrder
+  trialOrderId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -369,6 +396,9 @@ export type OrderWhereUniqueInput = Prisma.AtLeast<{
   coverImageUrl?: Prisma.StringNullableFilter<"Order"> | string | null
   duration?: Prisma.StringNullableFilter<"Order"> | string | null
   isFullVersion?: Prisma.BoolFilter<"Order"> | boolean
+  ipAddress?: Prisma.StringNullableFilter<"Order"> | string | null
+  deviceId?: Prisma.StringNullableFilter<"Order"> | string | null
+  trialOrderId?: Prisma.StringNullableFilter<"Order"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Order"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Order"> | Date | string
 }, "id">
@@ -394,6 +424,9 @@ export type OrderOrderByWithAggregationInput = {
   coverImageUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   duration?: Prisma.SortOrderInput | Prisma.SortOrder
   isFullVersion?: Prisma.SortOrder
+  ipAddress?: Prisma.SortOrderInput | Prisma.SortOrder
+  deviceId?: Prisma.SortOrderInput | Prisma.SortOrder
+  trialOrderId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.OrderCountOrderByAggregateInput
@@ -425,6 +458,9 @@ export type OrderScalarWhereWithAggregatesInput = {
   coverImageUrl?: Prisma.StringNullableWithAggregatesFilter<"Order"> | string | null
   duration?: Prisma.StringNullableWithAggregatesFilter<"Order"> | string | null
   isFullVersion?: Prisma.BoolWithAggregatesFilter<"Order"> | boolean
+  ipAddress?: Prisma.StringNullableWithAggregatesFilter<"Order"> | string | null
+  deviceId?: Prisma.StringNullableWithAggregatesFilter<"Order"> | string | null
+  trialOrderId?: Prisma.StringNullableWithAggregatesFilter<"Order"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Order"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Order"> | Date | string
 }
@@ -450,6 +486,9 @@ export type OrderCreateInput = {
   coverImageUrl?: string | null
   duration?: string | null
   isFullVersion?: boolean
+  ipAddress?: string | null
+  deviceId?: string | null
+  trialOrderId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -475,6 +514,9 @@ export type OrderUncheckedCreateInput = {
   coverImageUrl?: string | null
   duration?: string | null
   isFullVersion?: boolean
+  ipAddress?: string | null
+  deviceId?: string | null
+  trialOrderId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -500,6 +542,9 @@ export type OrderUpdateInput = {
   coverImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duration?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isFullVersion?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trialOrderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -525,6 +570,9 @@ export type OrderUncheckedUpdateInput = {
   coverImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duration?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isFullVersion?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trialOrderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -550,6 +598,9 @@ export type OrderCreateManyInput = {
   coverImageUrl?: string | null
   duration?: string | null
   isFullVersion?: boolean
+  ipAddress?: string | null
+  deviceId?: string | null
+  trialOrderId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -575,6 +626,9 @@ export type OrderUpdateManyMutationInput = {
   coverImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duration?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isFullVersion?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trialOrderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -600,6 +654,9 @@ export type OrderUncheckedUpdateManyInput = {
   coverImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duration?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isFullVersion?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trialOrderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -625,6 +682,9 @@ export type OrderCountOrderByAggregateInput = {
   coverImageUrl?: Prisma.SortOrder
   duration?: Prisma.SortOrder
   isFullVersion?: Prisma.SortOrder
+  ipAddress?: Prisma.SortOrder
+  deviceId?: Prisma.SortOrder
+  trialOrderId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -650,6 +710,9 @@ export type OrderMaxOrderByAggregateInput = {
   coverImageUrl?: Prisma.SortOrder
   duration?: Prisma.SortOrder
   isFullVersion?: Prisma.SortOrder
+  ipAddress?: Prisma.SortOrder
+  deviceId?: Prisma.SortOrder
+  trialOrderId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -675,6 +738,9 @@ export type OrderMinOrderByAggregateInput = {
   coverImageUrl?: Prisma.SortOrder
   duration?: Prisma.SortOrder
   isFullVersion?: Prisma.SortOrder
+  ipAddress?: Prisma.SortOrder
+  deviceId?: Prisma.SortOrder
+  trialOrderId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -718,6 +784,9 @@ export type OrderSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   coverImageUrl?: boolean
   duration?: boolean
   isFullVersion?: boolean
+  ipAddress?: boolean
+  deviceId?: boolean
+  trialOrderId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["order"]>
@@ -743,6 +812,9 @@ export type OrderSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   coverImageUrl?: boolean
   duration?: boolean
   isFullVersion?: boolean
+  ipAddress?: boolean
+  deviceId?: boolean
+  trialOrderId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["order"]>
@@ -768,6 +840,9 @@ export type OrderSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   coverImageUrl?: boolean
   duration?: boolean
   isFullVersion?: boolean
+  ipAddress?: boolean
+  deviceId?: boolean
+  trialOrderId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["order"]>
@@ -793,11 +868,14 @@ export type OrderSelectScalar = {
   coverImageUrl?: boolean
   duration?: boolean
   isFullVersion?: boolean
+  ipAddress?: boolean
+  deviceId?: boolean
+  trialOrderId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type OrderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "recipientName" | "personality" | "genre" | "userEmail" | "customerEmail" | "selectedStyle" | "selectedArtistStyle" | "songConfig" | "status" | "stripeSessionId" | "stripePaymentIntentId" | "paypalOrderId" | "aiRequestId" | "audioUrl" | "lyrics" | "title" | "coverImageUrl" | "duration" | "isFullVersion" | "createdAt" | "updatedAt", ExtArgs["result"]["order"]>
+export type OrderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "recipientName" | "personality" | "genre" | "userEmail" | "customerEmail" | "selectedStyle" | "selectedArtistStyle" | "songConfig" | "status" | "stripeSessionId" | "stripePaymentIntentId" | "paypalOrderId" | "aiRequestId" | "audioUrl" | "lyrics" | "title" | "coverImageUrl" | "duration" | "isFullVersion" | "ipAddress" | "deviceId" | "trialOrderId" | "createdAt" | "updatedAt", ExtArgs["result"]["order"]>
 
 export type $OrderPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Order"
@@ -823,6 +901,9 @@ export type $OrderPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     coverImageUrl: string | null
     duration: string | null
     isFullVersion: boolean
+    ipAddress: string | null
+    deviceId: string | null
+    trialOrderId: string | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["order"]>
@@ -1268,6 +1349,9 @@ export interface OrderFieldRefs {
   readonly coverImageUrl: Prisma.FieldRef<"Order", 'String'>
   readonly duration: Prisma.FieldRef<"Order", 'String'>
   readonly isFullVersion: Prisma.FieldRef<"Order", 'Boolean'>
+  readonly ipAddress: Prisma.FieldRef<"Order", 'String'>
+  readonly deviceId: Prisma.FieldRef<"Order", 'String'>
+  readonly trialOrderId: Prisma.FieldRef<"Order", 'String'>
   readonly createdAt: Prisma.FieldRef<"Order", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"Order", 'DateTime'>
 }

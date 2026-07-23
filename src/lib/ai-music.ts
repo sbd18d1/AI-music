@@ -202,8 +202,8 @@ async function buildSunoRequest(params: GenerateSongParams): Promise<{ gpt_descr
 /**
  * 保存生成结果到测试数据文件
  * 
- * 当真实模式成功生成歌曲时，自动保存所有数据到 test-song-data.json，
- * 并下载音频文件到 public/test-song.mp3，以便模拟模式使用。
+ * 当真实模式成功生成歌曲时，保存歌词、标题等元数据到 test-song-data.json，
+ * 但不再下载音频文件到 public/test-song.mp3，以保持原始示例音乐不变。
  * 
  * @param response 生成响应数据
  */
@@ -225,19 +225,7 @@ async function saveTestData(response: GenerateSongResponse): Promise<void> {
     log('saveTestData: Saving test data to', TEST_DATA_PATH);
     fs.writeFileSync(TEST_DATA_PATH, JSON.stringify(testData, null, 2));
 
-    if (response.audioUrl) {
-      log('saveTestData: Downloading audio file to', PUBLIC_AUDIO_PATH);
-      const audioResponse = await fetch(response.audioUrl);
-      if (audioResponse.ok) {
-        const audioBuffer = await audioResponse.arrayBuffer();
-        fs.writeFileSync(PUBLIC_AUDIO_PATH, Buffer.from(audioBuffer));
-        log('saveTestData: Audio file downloaded successfully');
-      } else {
-        log('saveTestData: Failed to download audio - status:', audioResponse.status);
-      }
-    }
-
-    log('saveTestData: All test data saved successfully');
+    log('saveTestData: Test data saved successfully (audio file not overwritten)');
   } catch (error) {
     log('saveTestData: Error saving test data:', { error });
   }
@@ -553,7 +541,7 @@ export async function pollForResult(taskId: string): Promise<GenerateSongRespons
               lyrics: song.prompt,
               title: song.title,
               coverImageUrl: song.image_url || song.image_large_url,
-              duration: song.duration,
+              duration: song.duration ? String(song.duration) : undefined,
             };
 
             saveTestData(result).catch(err => {
@@ -594,4 +582,96 @@ export async function pollForResult(taskId: string): Promise<GenerateSongRespons
     error: 'Timeout waiting for generation',
     requestId: taskId,
   };
+}
+
+/**
+ * 单次查询任务状态（不循环），供 generate-status API 使用。
+ * 前端负责轮询循环，每次调用只查一次 302.ai 并立即返回。
+ */
+export async function checkResultOnce(taskId: string): Promise<GenerateSongResponse> {
+  try {
+    // Add cache-busting timestamp to prevent 302.ai CDN from returning stale "running" responses
+    const fetchUrl = `${THREE02_AI_BASE_URL}/suno/fetch/${taskId}?_t=${Date.now()}`;
+    log('Single check - GET:', fetchUrl);
+
+    const response = await fetch(fetchUrl, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${process.env.THREE02_AI_KEY}`,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+      },
+    });
+
+    const responseBodyText = await response.text();
+    log('Single check response status:', response.status);
+    log('Single check response body:', responseBodyText.substring(0, 500));
+
+    let data: any;
+    try {
+      data = JSON.parse(responseBodyText);
+    } catch (parseError) {
+      log('JSON parse failed:', parseError instanceof Error ? parseError.message : String(parseError));
+      return { success: false, requestId: taskId };
+    }
+
+    // Check top-level status indicators (302.ai returns these when complete)
+    const topStatus = data.status;
+    const progress = data.progress;
+    const dataStatus = data.data?.status;
+    log(`Top-level status: ${topStatus}, progress: ${progress}, data.status: ${dataStatus}`);
+
+    if (data.data && data.data.data && Array.isArray(data.data.data)) {
+      const songs = data.data.data;
+
+      // Search all songs for one with audio_url (not just songs[0])
+      const completedSong = songs.find((s: any) => s.audio_url);
+      if (completedSong) {
+        log('Song generation complete! Audio URL:', completedSong.audio_url);
+
+        const result: GenerateSongResponse = {
+          success: true,
+          audioUrl: completedSong.audio_url,
+          requestId: taskId,
+          lyrics: completedSong.prompt,
+          title: completedSong.title,
+          coverImageUrl: completedSong.image_url || completedSong.image_large_url,
+          duration: completedSong.duration ? String(completedSong.duration) : undefined,
+        };
+
+        saveTestData(result).catch(err => {
+          log('Failed to save test data:', err);
+        });
+
+        return result;
+      }
+
+      // Check for failure
+      const failedSong = songs.find((s: any) => s.status === 'failed' || s.error);
+      if (failedSong) {
+        const errorMsg = failedSong.error || failedSong.msg || 'Generation failed';
+        log('Task failed:', errorMsg);
+        return {
+          success: false,
+          error: errorMsg,
+          requestId: taskId,
+        };
+      }
+    }
+
+    // If top-level status is SUCCESS but no audio_url found yet, log warning
+    // (302.ai may have eventual consistency — next poll should pick it up)
+    if (topStatus === 'SUCCESS' || dataStatus === 'SUCCESS') {
+      log('WARNING: Top-level status is SUCCESS but no audio_url found in songs array. Will retry on next poll.');
+    }
+
+    // 还在生成中
+    return { success: false, requestId: taskId };
+  } catch (error: any) {
+    log('Single check error:', {
+      message: error.message,
+      code: error.cause?.code || error.code,
+    });
+    return { success: false, requestId: taskId };
+  }
 }

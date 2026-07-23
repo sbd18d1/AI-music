@@ -7,6 +7,7 @@ import EmailModal from '@/components/EmailModal';
 import SongConfigPanel from '@/components/SongConfigPanel';
 import VintageAudioPlayer from '@/components/VintageAudioPlayer';
 import { DEFAULT_SELECTION, isSelectionComplete, deriveGenreFromConfig, type SongConfigSelection } from '@/lib/song-config';
+import { getDeviceId } from '@/lib/device-id';
 
 type Style = 'Classic Rock' | 'Country & Folk' | 'Blues & Soul' | '60s/70s Pop Ballad';
 type ArtistStyle = 'None' | 'Frank Sinatra' | 'Elvis Presley' | 'The Beatles' | 'The Rolling Stones' | 'Bob Dylan' | 'Simon & Garfunkel' | 'Aretha Franklin' | 'Neil Diamond' | 'Johnny Cash';
@@ -91,17 +92,39 @@ export default function Home() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('reset') === '1') {
-        localStorage.removeItem('has_used_free_trial');
-        localStorage.removeItem('trial_song_data');
-        localStorage.removeItem('instant_song_data');
-        localStorage.removeItem('session_lock_song_data');
-        localStorage.removeItem('session_lock_device_token');
-        localStorage.removeItem('session_lock_session');
-        localStorage.removeItem('session_lock_has_paid');
-        localStorage.removeItem('device_has_paid');
-        document.cookie = 'has_used_free_trial=; path=/; max-age=0';
-        window.history.replaceState({}, document.title, window.location.pathname);
-        window.location.reload();
+        const performReset = async () => {
+          // Read deviceId before clearing localStorage
+          const deviceId = localStorage.getItem('device_fingerprint_id');
+
+          // Always call API to clear database records (by deviceId and/or IP)
+          try {
+            await fetch('/api/reset-trial', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ deviceId: deviceId || undefined }),
+            });
+            console.log('[reset] Trial data cleared from database');
+          } catch (e) {
+            console.error('[reset] Failed to clear trial data from database:', e);
+          }
+
+          // Clear all localStorage keys
+          localStorage.removeItem('has_used_free_trial');
+          localStorage.removeItem('trial_song_data');
+          localStorage.removeItem('instant_song_data');
+          localStorage.removeItem('session_lock_song_data');
+          localStorage.removeItem('session_lock_device_token');
+          localStorage.removeItem('session_lock_session');
+          localStorage.removeItem('session_lock_has_paid');
+          localStorage.removeItem('device_has_paid');
+          localStorage.removeItem('trial_order_id');
+          localStorage.removeItem('device_fingerprint_id');
+          document.cookie = 'has_used_free_trial=; path=/; max-age=0';
+          window.history.replaceState({}, document.title, window.location.pathname);
+          window.location.reload();
+        };
+
+        performReset();
         return;
       }
 
@@ -111,6 +134,7 @@ export default function Home() {
         localStorage.removeItem('instant_trial_used');
         localStorage.removeItem('trial_song_data');
         localStorage.removeItem('has_used_free_trial');
+        localStorage.removeItem('trial_order_id');
         window.history.replaceState({}, document.title, window.location.pathname);
         setIsPaidDevice(true);
         setShowResult(false);
@@ -137,6 +161,11 @@ export default function Home() {
         setSongDuration(savedSong.duration);
         setShowResult(true);
       }
+      // Restore trial orderId from localStorage so it can be passed to payment flow
+      const savedOrderId = localStorage.getItem('trial_order_id');
+      if (savedOrderId) {
+        setOrderId(savedOrderId);
+      }
     }
   }, []);
 
@@ -154,6 +183,7 @@ export default function Home() {
 
     try {
       const derivedGenre = deriveGenreFromConfig(songConfig);
+      const deviceId = await getDeviceId();
       const payload = {
         recipientName: 'Gift Recipient',
         personality: formData.description,
@@ -161,6 +191,7 @@ export default function Home() {
         selectedStyle: derivedGenre,
         selectedArtistStyle: 'None',
         songConfig,
+        deviceId: deviceId || undefined,
       };
 
       const response = await fetch('/api/generate-test', {
@@ -187,7 +218,12 @@ export default function Home() {
           setSongDuration(data.duration || '');
           setOrderId(data.orderId || '');
           setShowResult(true);
-          
+
+          // Persist trial orderId so it can be passed to the payment flow after refresh
+          if (data.orderId) {
+            localStorage.setItem('trial_order_id', data.orderId);
+          }
+
           deliveryStrategy.saveSongData({
             audioUrl: data.audioUrl,
             isPreview: data.isPreview || true,
@@ -232,7 +268,7 @@ export default function Home() {
   };
 
   const pollGenerationStatus = async (taskId: string) => {
-    const maxRetries = 60;
+    const maxRetries = 120;
     const delay = 5000;
 
     for (let i = 0; i < maxRetries; i++) {
@@ -250,7 +286,12 @@ export default function Home() {
             setSongDuration(data.duration || '');
             setOrderId(data.orderId || '');
             setShowResult(true);
-            
+
+            // Persist trial orderId so it can be passed to the payment flow after refresh
+            if (data.orderId) {
+              localStorage.setItem('trial_order_id', data.orderId);
+            }
+
             deliveryStrategy.saveSongData({
               audioUrl: data.audioUrl,
               isPreview: data.isPreview || true,
@@ -299,6 +340,9 @@ export default function Home() {
     const personality = (formData.description || 'Custom song request').slice(0, 900);
     const genre = deriveGenreFromConfig(songConfig);
 
+    // Use trialOrderId from state, or fall back to localStorage (covers page-refresh case)
+    const trialOrderId = orderId || localStorage.getItem('trial_order_id') || undefined;
+
     setIsLoading(true);
 
     const payload: Record<string, unknown> = {
@@ -311,6 +355,10 @@ export default function Home() {
 
     if (userEmailAddress) {
       payload.userEmail = userEmailAddress;
+    }
+
+    if (trialOrderId) {
+      payload.trialOrderId = trialOrderId;
     }
 
     payload.songConfig = songConfig;
@@ -742,6 +790,14 @@ export default function Home() {
 
         <footer className="text-center mt-12 md:mt-16">
           <p className="text-base-content/60 text-lg">Made with ❤️ for music lovers everywhere</p>
+          <div className="mt-4 flex items-center justify-center gap-3">
+            <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            <a href="mailto:imallaboutyou@foxmail.com" className="text-base-content/80 hover:text-primary font-medium transition-colors">
+              imallaboutyou@foxmail.com
+            </a>
+          </div>
           <a href="/?reset=1" className="inline-block mt-4 text-base-content/30 hover:text-base-content/60 text-base underline">
             Reset (Clear all data)
           </a>

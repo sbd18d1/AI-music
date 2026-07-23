@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/db/client';
-import { pollForResult } from '@/lib/ai-music';
+import { checkResultOnce } from '@/lib/ai-music';
 
 export async function GET(
   request: Request,
@@ -20,6 +20,7 @@ export async function GET(
       );
     }
 
+    // If already completed in DB, return immediately
     if (order.status === 'success' && order.audioUrl) {
       return NextResponse.json({
         success: true,
@@ -42,7 +43,9 @@ export async function GET(
       });
     }
 
-    const result = await pollForResult(taskId);
+    // Do a SINGLE check of 302.ai (no internal loop) and return immediately.
+    // The frontend polling loop controls retry timing.
+    const result = await checkResultOnce(taskId);
 
     if (result.success && result.audioUrl) {
       await prisma.order.update({
@@ -83,6 +86,7 @@ export async function GET(
       });
     }
 
+    // Still generating — frontend will poll again
     return NextResponse.json({
       success: true,
       status: 'generating',

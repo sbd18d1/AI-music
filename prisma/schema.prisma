@@ -28,6 +28,9 @@ model Order {
   coverImageUrl      String?
   duration           String?
   isFullVersion      Boolean @default(false)
+  ipAddress          String?
+  deviceId           String?
+  trialOrderId       String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -35,14 +38,19 @@ model Order {
   @@index([paypalOrderId])
   @@index([aiRequestId])
   @@index([status])
+  @@index([ipAddress])
+  @@index([deviceId])
+  @@index([trialOrderId])
 }
 
 model TrialUsage {
   id        String    @id @default(uuid())
-  ipAddress String
+  ipAddress String?
+  deviceId  String?
   usedAt    DateTime  @default(now())
 
   @@index([ipAddress])
+  @@index([deviceId])
   @@index([usedAt])
 }
 

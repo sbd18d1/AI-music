@@ -27,18 +27,21 @@ export type AggregateTrialUsage = {
 export type TrialUsageMinAggregateOutputType = {
   id: string | null
   ipAddress: string | null
+  deviceId: string | null
   usedAt: Date | null
 }
 
 export type TrialUsageMaxAggregateOutputType = {
   id: string | null
   ipAddress: string | null
+  deviceId: string | null
   usedAt: Date | null
 }
 
 export type TrialUsageCountAggregateOutputType = {
   id: number
   ipAddress: number
+  deviceId: number
   usedAt: number
   _all: number
 }
@@ -47,18 +50,21 @@ export type TrialUsageCountAggregateOutputType = {
 export type TrialUsageMinAggregateInputType = {
   id?: true
   ipAddress?: true
+  deviceId?: true
   usedAt?: true
 }
 
 export type TrialUsageMaxAggregateInputType = {
   id?: true
   ipAddress?: true
+  deviceId?: true
   usedAt?: true
 }
 
 export type TrialUsageCountAggregateInputType = {
   id?: true
   ipAddress?: true
+  deviceId?: true
   usedAt?: true
   _all?: true
 }
@@ -137,7 +143,8 @@ export type TrialUsageGroupByArgs<ExtArgs extends runtime.Types.Extensions.Inter
 
 export type TrialUsageGroupByOutputType = {
   id: string
-  ipAddress: string
+  ipAddress: string | null
+  deviceId: string | null
   usedAt: Date
   _count: TrialUsageCountAggregateOutputType | null
   _min: TrialUsageMinAggregateOutputType | null
@@ -164,13 +171,15 @@ export type TrialUsageWhereInput = {
   OR?: Prisma.TrialUsageWhereInput[]
   NOT?: Prisma.TrialUsageWhereInput | Prisma.TrialUsageWhereInput[]
   id?: Prisma.StringFilter<"TrialUsage"> | string
-  ipAddress?: Prisma.StringFilter<"TrialUsage"> | string
+  ipAddress?: Prisma.StringNullableFilter<"TrialUsage"> | string | null
+  deviceId?: Prisma.StringNullableFilter<"TrialUsage"> | string | null
   usedAt?: Prisma.DateTimeFilter<"TrialUsage"> | Date | string
 }
 
 export type TrialUsageOrderByWithRelationInput = {
   id?: Prisma.SortOrder
-  ipAddress?: Prisma.SortOrder
+  ipAddress?: Prisma.SortOrderInput | Prisma.SortOrder
+  deviceId?: Prisma.SortOrderInput | Prisma.SortOrder
   usedAt?: Prisma.SortOrder
 }
 
@@ -179,13 +188,15 @@ export type TrialUsageWhereUniqueInput = Prisma.AtLeast<{
   AND?: Prisma.TrialUsageWhereInput | Prisma.TrialUsageWhereInput[]
   OR?: Prisma.TrialUsageWhereInput[]
   NOT?: Prisma.TrialUsageWhereInput | Prisma.TrialUsageWhereInput[]
-  ipAddress?: Prisma.StringFilter<"TrialUsage"> | string
+  ipAddress?: Prisma.StringNullableFilter<"TrialUsage"> | string | null
+  deviceId?: Prisma.StringNullableFilter<"TrialUsage"> | string | null
   usedAt?: Prisma.DateTimeFilter<"TrialUsage"> | Date | string
 }, "id">
 
 export type TrialUsageOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
-  ipAddress?: Prisma.SortOrder
+  ipAddress?: Prisma.SortOrderInput | Prisma.SortOrder
+  deviceId?: Prisma.SortOrderInput | Prisma.SortOrder
   usedAt?: Prisma.SortOrder
   _count?: Prisma.TrialUsageCountOrderByAggregateInput
   _max?: Prisma.TrialUsageMaxOrderByAggregateInput
@@ -197,67 +208,78 @@ export type TrialUsageScalarWhereWithAggregatesInput = {
   OR?: Prisma.TrialUsageScalarWhereWithAggregatesInput[]
   NOT?: Prisma.TrialUsageScalarWhereWithAggregatesInput | Prisma.TrialUsageScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"TrialUsage"> | string
-  ipAddress?: Prisma.StringWithAggregatesFilter<"TrialUsage"> | string
+  ipAddress?: Prisma.StringNullableWithAggregatesFilter<"TrialUsage"> | string | null
+  deviceId?: Prisma.StringNullableWithAggregatesFilter<"TrialUsage"> | string | null
   usedAt?: Prisma.DateTimeWithAggregatesFilter<"TrialUsage"> | Date | string
 }
 
 export type TrialUsageCreateInput = {
   id?: string
-  ipAddress: string
+  ipAddress?: string | null
+  deviceId?: string | null
   usedAt?: Date | string
 }
 
 export type TrialUsageUncheckedCreateInput = {
   id?: string
-  ipAddress: string
+  ipAddress?: string | null
+  deviceId?: string | null
   usedAt?: Date | string
 }
 
 export type TrialUsageUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  ipAddress?: Prisma.StringFieldUpdateOperationsInput | string
+  ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   usedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type TrialUsageUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  ipAddress?: Prisma.StringFieldUpdateOperationsInput | string
+  ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   usedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type TrialUsageCreateManyInput = {
   id?: string
-  ipAddress: string
+  ipAddress?: string | null
+  deviceId?: string | null
   usedAt?: Date | string
 }
 
 export type TrialUsageUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  ipAddress?: Prisma.StringFieldUpdateOperationsInput | string
+  ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   usedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type TrialUsageUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  ipAddress?: Prisma.StringFieldUpdateOperationsInput | string
+  ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   usedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type TrialUsageCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   ipAddress?: Prisma.SortOrder
+  deviceId?: Prisma.SortOrder
   usedAt?: Prisma.SortOrder
 }
 
 export type TrialUsageMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   ipAddress?: Prisma.SortOrder
+  deviceId?: Prisma.SortOrder
   usedAt?: Prisma.SortOrder
 }
 
 export type TrialUsageMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   ipAddress?: Prisma.SortOrder
+  deviceId?: Prisma.SortOrder
   usedAt?: Prisma.SortOrder
 }
 
@@ -266,35 +288,40 @@ export type TrialUsageMinOrderByAggregateInput = {
 export type TrialUsageSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   ipAddress?: boolean
+  deviceId?: boolean
   usedAt?: boolean
 }, ExtArgs["result"]["trialUsage"]>
 
 export type TrialUsageSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   ipAddress?: boolean
+  deviceId?: boolean
   usedAt?: boolean
 }, ExtArgs["result"]["trialUsage"]>
 
 export type TrialUsageSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   ipAddress?: boolean
+  deviceId?: boolean
   usedAt?: boolean
 }, ExtArgs["result"]["trialUsage"]>
 
 export type TrialUsageSelectScalar = {
   id?: boolean
   ipAddress?: boolean
+  deviceId?: boolean
   usedAt?: boolean
 }
 
-export type TrialUsageOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ipAddress" | "usedAt", ExtArgs["result"]["trialUsage"]>
+export type TrialUsageOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ipAddress" | "deviceId" | "usedAt", ExtArgs["result"]["trialUsage"]>
 
 export type $TrialUsagePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "TrialUsage"
   objects: {}
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
-    ipAddress: string
+    ipAddress: string | null
+    deviceId: string | null
     usedAt: Date
   }, ExtArgs["result"]["trialUsage"]>
   composites: {}
@@ -721,6 +748,7 @@ export interface Prisma__TrialUsageClient<T, Null = never, ExtArgs extends runti
 export interface TrialUsageFieldRefs {
   readonly id: Prisma.FieldRef<"TrialUsage", 'String'>
   readonly ipAddress: Prisma.FieldRef<"TrialUsage", 'String'>
+  readonly deviceId: Prisma.FieldRef<"TrialUsage", 'String'>
   readonly usedAt: Prisma.FieldRef<"TrialUsage", 'DateTime'>
 }
     
@@ -921,7 +949,7 @@ export type TrialUsageCreateArgs<ExtArgs extends runtime.Types.Extensions.Intern
   /**
    * The data needed to create a TrialUsage.
    */
-  data: Prisma.XOR<Prisma.TrialUsageCreateInput, Prisma.TrialUsageUncheckedCreateInput>
+  data?: Prisma.XOR<Prisma.TrialUsageCreateInput, Prisma.TrialUsageUncheckedCreateInput>
 }
 
 /**

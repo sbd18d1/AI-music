@@ -113,31 +113,57 @@ export async function POST(request: NextRequest) {
       console.log(`[${new Date().toISOString()}] PayPal payment captured:`, paypalOrderId);
     }
 
-    const existingTrialOrder = await prisma.order.findFirst({
-      where: {
-        personality: order.personality,
-        genre: order.genre,
-        recipientName: order.recipientName,
-        status: 'success',
-        isFullVersion: false,
-        audioUrl: { not: null },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    // Prefer trialOrderId-based lookup (new logic: one device = one trial order).
+    // Fallback: if the payment order already has audioUrl copied from trial order at create-time, use it directly.
+    let trialSong: {
+      audioUrl: string | null;
+      lyrics: string | null;
+      title: string | null;
+      coverImageUrl: string | null;
+      duration: string | null;
+    } | null = null;
 
-    if (existingTrialOrder && existingTrialOrder.audioUrl) {
-      console.log(`[${new Date().toISOString()}] Using existing trial song for order: ${orderId}`);
-      
+    if (order.trialOrderId) {
+      const trialOrder = await prisma.order.findUnique({
+        where: { id: order.trialOrderId },
+      });
+      if (trialOrder && !trialOrder.isFullVersion && trialOrder.status === 'success' && trialOrder.audioUrl) {
+        trialSong = {
+          audioUrl: trialOrder.audioUrl,
+          lyrics: trialOrder.lyrics,
+          title: trialOrder.title,
+          coverImageUrl: trialOrder.coverImageUrl,
+          duration: trialOrder.duration,
+        };
+        console.log(`[${new Date().toISOString()}] Using trial song from trialOrderId: ${order.trialOrderId}`);
+      }
+    }
+
+    // Fallback: if the payment order already has audioUrl copied at create-order time
+    if (!trialSong && order.audioUrl) {
+      trialSong = {
+        audioUrl: order.audioUrl,
+        lyrics: order.lyrics,
+        title: order.title,
+        coverImageUrl: order.coverImageUrl,
+        duration: order.duration,
+      };
+      console.log(`[${new Date().toISOString()}] Using audioUrl already stored on payment order: ${orderId}`);
+    }
+
+    if (trialSong && trialSong.audioUrl) {
+      console.log(`[${new Date().toISOString()}] Reusing trial song for order: ${orderId}`);
+
       await prisma.order.update({
         where: { id: orderId },
         data: {
           status: 'success',
           paypalOrderId: paypalOrderId,
-          audioUrl: existingTrialOrder.audioUrl,
-          lyrics: existingTrialOrder.lyrics,
-          title: existingTrialOrder.title,
-          coverImageUrl: existingTrialOrder.coverImageUrl,
-          duration: existingTrialOrder.duration,
+          audioUrl: trialSong.audioUrl,
+          lyrics: trialSong.lyrics,
+          title: trialSong.title,
+          coverImageUrl: trialSong.coverImageUrl,
+          duration: trialSong.duration,
         },
       });
 
@@ -146,9 +172,9 @@ export async function POST(request: NextRequest) {
           await sendSongEmail({
                 email: order.customerEmail,
                 recipientName: order.recipientName,
-                audioUrl: existingTrialOrder.audioUrl!,
-                title: existingTrialOrder.title || undefined,
-                lyrics: existingTrialOrder.lyrics || undefined,
+                audioUrl: trialSong.audioUrl,
+                title: trialSong.title || undefined,
+                lyrics: trialSong.lyrics || undefined,
                 orderId: orderId,
               });
           console.log(`[${new Date().toISOString()}] Email sent successfully to: ${order.customerEmail}`);
@@ -157,8 +183,8 @@ export async function POST(request: NextRequest) {
         }
       }
     } else {
-      console.log(`[${new Date().toISOString()}] No existing trial song found, generating new song for order: ${orderId}`);
-      
+      console.log(`[${new Date().toISOString()}] No trial song found, generating new song for order: ${orderId}`);
+
       await prisma.order.update({
         where: { id: orderId },
         data: {

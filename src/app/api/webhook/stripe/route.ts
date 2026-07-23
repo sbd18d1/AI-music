@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { prisma } from '@/db/client';
 import { generateSong } from '@/lib/ai-music';
+import { sendSongEmail } from '@/lib/email';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
@@ -59,11 +60,86 @@ async function handleCheckoutSessionCompleted(
   const genre = session.metadata.genre || order.genre;
   const selectedStyle = session.metadata.selectedStyle || order.selectedStyle;
   const selectedArtistStyle = session.metadata.selectedArtistStyle || order.selectedArtistStyle;
+  const trialOrderIdFromMeta = session.metadata.trialOrderId || order.trialOrderId;
 
-  console.log(`[${new Date().toISOString()}] Starting full song generation for order: ${order.id}`);
+  // Prefer trialOrderId-based lookup (new logic: one device = one trial order).
+  let trialSong: {
+    audioUrl: string | null;
+    lyrics: string | null;
+    title: string | null;
+    coverImageUrl: string | null;
+    duration: string | null;
+  } | null = null;
+
+  if (trialOrderIdFromMeta) {
+    const trialOrder = await prisma.order.findUnique({
+      where: { id: trialOrderIdFromMeta },
+    });
+    if (trialOrder && !trialOrder.isFullVersion && trialOrder.status === 'success' && trialOrder.audioUrl) {
+      trialSong = {
+        audioUrl: trialOrder.audioUrl,
+        lyrics: trialOrder.lyrics,
+        title: trialOrder.title,
+        coverImageUrl: trialOrder.coverImageUrl,
+        duration: trialOrder.duration,
+      };
+      console.log(`[${new Date().toISOString()}] Using trial song from trialOrderId: ${trialOrderIdFromMeta}`);
+    }
+  }
+
+  // Fallback: if the payment order already has audioUrl copied at create-order time
+  if (!trialSong && order.audioUrl) {
+    trialSong = {
+      audioUrl: order.audioUrl,
+      lyrics: order.lyrics,
+      title: order.title,
+      coverImageUrl: order.coverImageUrl,
+      duration: order.duration,
+    };
+    console.log(`[${new Date().toISOString()}] Using audioUrl already stored on payment order: ${order.id}`);
+  }
+
+  if (trialSong && trialSong.audioUrl) {
+    console.log(`[${new Date().toISOString()}] Reusing trial song for order: ${order.id}`);
+
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: 'success',
+        audioUrl: trialSong.audioUrl,
+        lyrics: trialSong.lyrics,
+        title: trialSong.title,
+        coverImageUrl: trialSong.coverImageUrl,
+        duration: trialSong.duration,
+      },
+    });
+
+    if (customerEmail) {
+      try {
+        await sendSongEmail({
+          email: customerEmail,
+          recipientName: order.recipientName,
+          audioUrl: trialSong.audioUrl,
+          title: trialSong.title || undefined,
+          lyrics: trialSong.lyrics || undefined,
+          orderId: order.id,
+        });
+        console.log(`[${new Date().toISOString()}] Email sent successfully to: ${customerEmail}`);
+      } catch (emailError) {
+        console.error(`[${new Date().toISOString()}] Failed to send email:`, emailError);
+      }
+    }
+    return;
+  }
+
+  console.log(`[${new Date().toISOString()}] No trial song found, generating new song for order: ${order.id}`);
   console.log(`[${new Date().toISOString()}] Parameters: ${recipientName}, ${genre}, ${personality.length} chars`);
 
   try {
+    const parsedSongConfig = order.songConfig
+      ? JSON.parse(order.songConfig)
+      : undefined;
+
     const aiResponse = await generateSong({
       recipientName,
       personality,
@@ -71,6 +147,7 @@ async function handleCheckoutSessionCompleted(
       isPreview: false,
       selectedStyle: selectedStyle || genre,
       selectedArtistStyle: selectedArtistStyle ?? undefined,
+      songConfig: parsedSongConfig,
     });
 
     if (aiResponse.success && aiResponse.audioUrl) {
@@ -89,6 +166,21 @@ async function handleCheckoutSessionCompleted(
 
       console.log(`[${new Date().toISOString()}] Full song generation successful! Order: ${order.id}`);
 
+      if (customerEmail) {
+        try {
+          await sendSongEmail({
+            email: customerEmail,
+            recipientName: order.recipientName,
+            audioUrl: aiResponse.audioUrl!,
+            title: aiResponse.title,
+            lyrics: aiResponse.lyrics,
+            orderId: order.id,
+          });
+          console.log(`[${new Date().toISOString()}] Email sent successfully to: ${customerEmail}`);
+        } catch (emailError) {
+          console.error(`[${new Date().toISOString()}] Failed to send email:`, emailError);
+        }
+      }
     } else {
       await prisma.order.update({
         where: { id: order.id },

@@ -10,6 +10,7 @@ const CreateOrderSchema = z.object({
   selectedArtistStyle: z.string().optional(),
   userEmail: z.string().email().optional(),
   songConfig: z.any().optional(),
+  trialOrderId: z.string().optional(),
 });
 
 function getPayPalConfig() {
@@ -42,12 +43,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { recipientName, personality, genre, selectedStyle, selectedArtistStyle, userEmail, songConfig } = result.data;
+    const { recipientName, personality, genre, selectedStyle, selectedArtistStyle, userEmail, songConfig, trialOrderId } = result.data;
 
     const orderId = crypto.randomUUID();
 
     console.log(`[${new Date().toISOString()}] Creating order with email:`, userEmail || 'NOT PROVIDED');
     console.log(`[${new Date().toISOString()}] Creating order with songConfig:`, songConfig ? 'PROVIDED' : 'NOT PROVIDED');
+    console.log(`[${new Date().toISOString()}] Creating order with trialOrderId:`, trialOrderId || 'NOT PROVIDED');
+
+    // If trialOrderId is provided, verify it exists and copy song data from the trial order
+    let trialOrderData: {
+      audioUrl: string | null;
+      lyrics: string | null;
+      title: string | null;
+      coverImageUrl: string | null;
+      duration: string | null;
+      ipAddress: string | null;
+      deviceId: string | null;
+    } | null = null;
+
+    if (trialOrderId) {
+      const trialOrder = await prisma.order.findUnique({
+        where: { id: trialOrderId },
+      });
+
+      if (trialOrder && !trialOrder.isFullVersion && trialOrder.status === 'success' && trialOrder.audioUrl) {
+        trialOrderData = {
+          audioUrl: trialOrder.audioUrl,
+          lyrics: trialOrder.lyrics,
+          title: trialOrder.title,
+          coverImageUrl: trialOrder.coverImageUrl,
+          duration: trialOrder.duration,
+          ipAddress: trialOrder.ipAddress,
+          deviceId: trialOrder.deviceId,
+        };
+        console.log(`[${new Date().toISOString()}] Found trial order ${trialOrderId} with audioUrl, will reuse song`);
+      } else {
+        console.warn(`[${new Date().toISOString()}] Trial order ${trialOrderId} not found or invalid, will generate new song`);
+      }
+    }
 
     await prisma.order.create({
       data: {
@@ -61,6 +95,14 @@ export async function POST(request: NextRequest) {
         songConfig: songConfig ? JSON.stringify(songConfig) : null,
         status: 'pending',
         isFullVersion: true,
+        trialOrderId: trialOrderId || null,
+        ipAddress: trialOrderData?.ipAddress || null,
+        deviceId: trialOrderData?.deviceId || null,
+        audioUrl: trialOrderData?.audioUrl || null,
+        lyrics: trialOrderData?.lyrics || null,
+        title: trialOrderData?.title || null,
+        coverImageUrl: trialOrderData?.coverImageUrl || null,
+        duration: trialOrderData?.duration || null,
       },
     });
 

@@ -9,6 +9,7 @@ const generateSchema = z.object({
   genre: z.string().min(1).max(100),
   selectedStyle: z.string().optional(),
   selectedArtistStyle: z.string().optional(),
+  deviceId: z.string().max(200).optional(),
 });
 
 function getClientIp(request: NextRequest): string {
@@ -24,41 +25,57 @@ function getClientIp(request: NextRequest): string {
   return ip || 'unknown';
 }
 
-async function checkTrialLimit(ipAddress: string): Promise<boolean> {
-  const oneDayAgo = new Date();
-  oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+// Device-based trial limit: one trial per device (permanent, not 24h).
+// Uses deviceId only — no IP fallback, to avoid blocking multiple users
+// behind the same NAT/router/WiFi.
+async function checkTrialLimit(deviceId: string | undefined): Promise<boolean> {
+  if (!deviceId) return false;
 
-  const usageCount = await prisma.trialUsage.count({
-    where: {
-      ipAddress,
-      usedAt: {
-        gte: oneDayAgo,
-      },
-    },
+  const deviceUsageCount = await prisma.trialUsage.count({
+    where: { deviceId },
   });
 
-  return usageCount >= 1;
+  return deviceUsageCount >= 1;
 }
 
-async function recordTrialUsage(ipAddress: string): Promise<void> {
+async function recordTrialUsage(deviceId: string | undefined, ipAddress: string): Promise<void> {
   await prisma.trialUsage.create({
     data: {
       ipAddress,
+      deviceId: deviceId || null,
     },
+  });
+}
+
+// Find an existing successful trial order for this device (by deviceId only).
+async function findExistingTrialOrder(deviceId: string | undefined) {
+  if (!deviceId) return null;
+
+  return prisma.order.findFirst({
+    where: {
+      deviceId,
+      isFullVersion: false,
+      status: 'success',
+      audioUrl: { not: null },
+    },
+    orderBy: { createdAt: 'desc' },
   });
 }
 
 export async function POST(request: NextRequest) {
   try {
     const ipAddress = getClientIp(request);
-    console.log(`[${new Date().toISOString()}] Trial request from IP: ${ipAddress}`);
-
     const AI_GENERATION_MODE = process.env.NEXT_PUBLIC_AI_GENERATION_MODE || 'mock';
-    
+
+    const body = await request.json();
+    const deviceId: string | undefined = body.deviceId;
+
+    console.log(`[${new Date().toISOString()}] Trial request from IP: ${ipAddress}, deviceId: ${deviceId || 'none'}`);
+
     if (AI_GENERATION_MODE !== 'mock') {
-      const hasUsedTrial = await checkTrialLimit(ipAddress);
+      const hasUsedTrial = await checkTrialLimit(deviceId);
       if (hasUsedTrial) {
-        console.log(`[${new Date().toISOString()}] Trial limit exceeded for IP: ${ipAddress}`);
+        console.log(`[${new Date().toISOString()}] Trial limit exceeded for device: ${deviceId}`);
         return NextResponse.json(
           {
             success: false,
@@ -70,7 +87,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const body = await request.json();
+    // Check if this device already has a successful trial order.
+    // If yes, return that trial song directly (with watermark) instead of generating a new one.
+    const existingTrialOrder = await findExistingTrialOrder(deviceId);
+
+    if (existingTrialOrder && existingTrialOrder.audioUrl) {
+      console.log(`[${new Date().toISOString()}] Reusing existing trial order ${existingTrialOrder.id} for device: ${deviceId}`);
+      return NextResponse.json({
+        success: true,
+        audioUrl: existingTrialOrder.audioUrl,
+        orderId: existingTrialOrder.id,
+        isPreview: true,
+        lyrics: existingTrialOrder.lyrics,
+        title: existingTrialOrder.title,
+        coverImageUrl: existingTrialOrder.coverImageUrl,
+        duration: existingTrialOrder.duration,
+        reused: true,
+      });
+    }
 
     let recipientName = body.recipientName || 'Gift Recipient';
     let personality = body.personality || '';
@@ -104,6 +138,8 @@ export async function POST(request: NextRequest) {
         songConfig: songConfig ? JSON.stringify(songConfig) : null,
         status: 'testing',
         isFullVersion: false,
+        ipAddress,
+        deviceId: deviceId || null,
       },
     });
 
@@ -127,7 +163,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      console.log(`[${new Date().toISOString()}] Trial submitted for IP: ${ipAddress}, order: ${order.id}, taskId: ${aiResponse.requestId}`);
+      console.log(`[${new Date().toISOString()}] Trial submitted for device: ${deviceId}, order: ${order.id}, taskId: ${aiResponse.requestId}`);
 
       return NextResponse.json({
         success: true,
@@ -139,7 +175,7 @@ export async function POST(request: NextRequest) {
 
     if (aiResponse.success && aiResponse.audioUrl) {
       if (AI_GENERATION_MODE !== 'mock') {
-        await recordTrialUsage(ipAddress);
+        await recordTrialUsage(deviceId, ipAddress);
       }
 
       await prisma.order.update({
@@ -155,7 +191,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      console.log(`[${new Date().toISOString()}] Trial successful for IP: ${ipAddress}, order: ${order.id}`);
+      console.log(`[${new Date().toISOString()}] Trial successful for device: ${deviceId}, order: ${order.id}`);
 
       return NextResponse.json({
         success: true,
