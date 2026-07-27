@@ -35,6 +35,7 @@ export default function OrderStatus() {
     const orderId = urlParams.get('order_id');
     const token = urlParams.get('token');
     const payerId = urlParams.get('PayerID');
+    const provider = urlParams.get('provider');
 
     if (!sessionId && !orderId) {
       setError('No order ID found');
@@ -45,6 +46,7 @@ export default function OrderStatus() {
     let captureCalled = false;
 
     const capturePayPalPayment = async () => {
+      if (provider === 'paddle') return;
       if (!token || !payerId || !orderId || captureCalled) return;
       captureCalled = true;
 
@@ -84,7 +86,7 @@ export default function OrderStatus() {
         if (data.success && data.order) {
           setOrder(data.order);
 
-          if (data.order.status === 'pending' && token && payerId) {
+          if (data.order.status === 'pending' && token && payerId && provider !== 'paddle') {
             capturePayPalPayment();
           }
 
@@ -94,7 +96,6 @@ export default function OrderStatus() {
             setPolling(false);
           }
         } else {
-          // 如果订单没找到且重试次数少于5次，继续重试
           if (retryCount < 5) {
             console.log(`Order not found, retrying... (${retryCount + 1}/5)`);
             setTimeout(() => fetchOrder(retryCount + 1), 2000);
@@ -105,7 +106,6 @@ export default function OrderStatus() {
         }
       } catch (err) {
         console.error('Failed to fetch order:', err);
-        // 如果网络错误且重试次数少于5次，继续重试
         if (retryCount < 5) {
           setTimeout(() => fetchOrder(retryCount + 1), 2000);
         } else {

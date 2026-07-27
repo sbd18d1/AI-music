@@ -8,6 +8,7 @@ import SongConfigPanel from '@/components/SongConfigPanel';
 import VintageAudioPlayer from '@/components/VintageAudioPlayer';
 import { DEFAULT_SELECTION, isSelectionComplete, deriveGenreFromConfig, type SongConfigSelection } from '@/lib/song-config';
 import { getDeviceId } from '@/lib/device-id';
+import { usePaddle } from '@/lib/paddle';
 
 type Style = 'Classic Rock' | 'Country & Folk' | 'Blues & Soul' | '60s/70s Pop Ballad';
 type ArtistStyle = 'None' | 'Frank Sinatra' | 'Elvis Presley' | 'The Beatles' | 'The Rolling Stones' | 'Bob Dylan' | 'Simon & Garfunkel' | 'Aretha Franklin' | 'Neil Diamond' | 'Johnny Cash';
@@ -87,6 +88,7 @@ export default function Home() {
   const [songConfig, setSongConfig] = useState<SongConfigSelection>(DEFAULT_SELECTION);
   
   const deliveryStrategy = getDeliveryStrategy();
+  const { isReady: paddleReady, openCheckout: openPaddleCheckout } = usePaddle();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -388,6 +390,33 @@ export default function Home() {
           console.error('Error:', error);
           alert('An error occurred');
         });
+    } else if (PAYMENT_PROVIDER === 'paddle') {
+      fetch('/api/paddle/create-transaction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          setIsLoading(false);
+          if (data.success && data.transactionId) {
+            if (paddleReady && openPaddleCheckout) {
+              openPaddleCheckout({
+                transactionId: data.transactionId,
+                email: userEmailAddress,
+              });
+            } else {
+              window.location.href = `${process.env.NEXT_PUBLIC_URL}/order-status?order_id=${data.orderId}&provider=paddle`;
+            }
+          } else {
+            alert('Failed to create Paddle transaction: ' + (data.error || 'Unknown error'));
+          }
+        })
+        .catch((error) => {
+          setIsLoading(false);
+          console.error('Error:', error);
+          alert('An error occurred');
+        });
     } else {
       fetch('/api/checkout', {
         method: 'POST',
@@ -636,7 +665,7 @@ export default function Home() {
             </div>
 
             <p className="text-center text-base-content/60 text-sm mt-5">
-              Secure payment via {PAYMENT_PROVIDER === 'paypal' ? 'PayPal' : 'Stripe'}. No subscription, one-time purchase only.
+              Secure payment via {PAYMENT_PROVIDER === 'paypal' ? 'PayPal' : PAYMENT_PROVIDER === 'paddle' ? 'Apple Pay / Google Pay / Card' : 'Stripe'}. No subscription, one-time purchase only.
             </p>
           </form>
         )}
@@ -797,6 +826,13 @@ export default function Home() {
             <a href="mailto:imallaboutyou@foxmail.com" className="text-base-content/80 hover:text-primary font-medium transition-colors">
               imallaboutyou@foxmail.com
             </a>
+          </div>
+          <div className="mt-4 flex items-center justify-center gap-4 text-sm text-base-content/50">
+            <a href="/terms" className="hover:text-primary transition-colors">Terms of Service</a>
+            <span className="text-base-content/30">·</span>
+            <a href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</a>
+            <span className="text-base-content/30">·</span>
+            <a href="/refund" className="hover:text-primary transition-colors">Refund Policy</a>
           </div>
           <a href="/?reset=1" className="inline-block mt-4 text-base-content/30 hover:text-base-content/60 text-base underline">
             Reset (Clear all data)
