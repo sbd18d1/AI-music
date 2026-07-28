@@ -31,64 +31,21 @@ export default function OrderStatus() {
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const sessionId = urlParams.get('session_id');
     const orderId = urlParams.get('order_id');
-    const token = urlParams.get('token');
-    const payerId = urlParams.get('PayerID');
-    const provider = urlParams.get('provider');
 
-    if (!sessionId && !orderId) {
+    if (!orderId) {
       setError('No order ID found');
       setIsLoading(false);
       return;
     }
 
-    let captureCalled = false;
-
-    const capturePayPalPayment = async () => {
-      if (provider === 'paddle') return;
-      if (!token || !payerId || !orderId || captureCalled) return;
-      captureCalled = true;
-
-      try {
-        const response = await fetch('/api/paypal/capture-order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            orderId,
-            paypalOrderId: token,
-            token,
-            payerId,
-          }),
-        });
-
-        const data = await response.json();
-        if (data.success) {
-          console.log('Payment captured successfully:', data.message);
-        } else {
-          console.error('Payment capture failed:', data.error);
-          captureCalled = false;
-        }
-      } catch (err) {
-        console.error('Error capturing payment:', err);
-        captureCalled = false;
-      }
-    };
-
     const fetchOrder = async (retryCount: number = 0) => {
       try {
-        const params = sessionId ? `session_id=${sessionId}` : `order_id=${orderId}`;
-        const response = await fetch(`/api/order-status?${params}`);
+        const response = await fetch(`/api/order-status?order_id=${orderId}`);
         const data = await response.json();
 
         if (data.success && data.order) {
           setOrder(data.order);
-
-          if (data.order.status === 'pending' && token && payerId && provider !== 'paddle') {
-            capturePayPalPayment();
-          }
 
           if (data.order.status === 'pending' || data.order.status === 'processing') {
             setTimeout(fetchOrder, 3000);

@@ -59,8 +59,6 @@ const artistOptions: { id: ArtistStyle; name: string; description: string }[] = 
   { id: 'Johnny Cash', name: 'Johnny Cash', description: 'Deep baritone country' },
 ];
 
-const PAYMENT_PROVIDER = process.env.NEXT_PUBLIC_PAYMENT_PROVIDER || 'paypal';
-
 export default function Home() {
   const [formData, setFormData] = useState<FormData>({
     description: '',
@@ -365,79 +363,32 @@ export default function Home() {
 
     payload.songConfig = songConfig;
 
-    if (PAYMENT_PROVIDER === 'paypal') {
-      fetch('/api/paypal/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          setIsLoading(false);
-          if (data.success && data.links) {
-            const approvalLink = data.links.find((link: { rel: string }) => link.rel === 'approve');
-            if (approvalLink) {
-              window.location.href = approvalLink.href;
-            } else {
-              alert('Failed to get PayPal approval link');
-            }
+    fetch('/api/paddle/create-transaction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        setIsLoading(false);
+        if (data.success && data.transactionId) {
+          if (paddleReady && openPaddleCheckout) {
+            openPaddleCheckout({
+              transactionId: data.transactionId,
+              email: userEmailAddress,
+            });
           } else {
-            alert('Failed to create PayPal order: ' + (data.error || 'Unknown error'));
+            window.location.href = `${process.env.NEXT_PUBLIC_URL}/order-status?order_id=${data.orderId}&provider=paddle`;
           }
-        })
-        .catch((error) => {
-          setIsLoading(false);
-          console.error('Error:', error);
-          alert('An error occurred');
-        });
-    } else if (PAYMENT_PROVIDER === 'paddle') {
-      fetch('/api/paddle/create-transaction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        } else {
+          alert('Failed to create Paddle transaction: ' + (data.error || 'Unknown error'));
+        }
       })
-        .then((response) => response.json())
-        .then((data) => {
-          setIsLoading(false);
-          if (data.success && data.transactionId) {
-            if (paddleReady && openPaddleCheckout) {
-              openPaddleCheckout({
-                transactionId: data.transactionId,
-                email: userEmailAddress,
-              });
-            } else {
-              window.location.href = `${process.env.NEXT_PUBLIC_URL}/order-status?order_id=${data.orderId}&provider=paddle`;
-            }
-          } else {
-            alert('Failed to create Paddle transaction: ' + (data.error || 'Unknown error'));
-          }
-        })
-        .catch((error) => {
-          setIsLoading(false);
-          console.error('Error:', error);
-          alert('An error occurred');
-        });
-    } else {
-      fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          setIsLoading(false);
-          if (data.url) {
-            window.location.href = data.url;
-          } else {
-            alert('Failed to create checkout session: ' + (data.error || 'Unknown error'));
-          }
-        })
-        .catch((error) => {
-          setIsLoading(false);
-          console.error('Error:', error);
-          alert('An error occurred');
-        });
-    }
+      .catch((error) => {
+        setIsLoading(false);
+        console.error('Error:', error);
+        alert('An error occurred');
+      });
   };
 
   const handleDownload = () => {
@@ -665,7 +616,7 @@ export default function Home() {
             </div>
 
             <p className="text-center text-base-content/60 text-sm mt-5">
-              Secure payment via {PAYMENT_PROVIDER === 'paypal' ? 'PayPal' : PAYMENT_PROVIDER === 'paddle' ? 'Apple Pay / Google Pay / Card' : 'Stripe'}. No subscription, one-time purchase only.
+              Secure payment via Apple Pay / Google Pay / Card / PayPal. No subscription, one-time purchase only.
             </p>
           </form>
         )}

@@ -47,9 +47,7 @@ export function usePaddle() {
         }
 
         const script = document.createElement('script');
-        script.src = environment === 'sandbox'
-          ? 'https://sandbox-js.paddle.com/web/paddle.js'
-          : 'https://js.paddle.com/web/paddle.js';
+        script.src = 'https://js.paddle.com/web/paddle.js';
         script.async = true;
         script.onload = () => {
           if (window.Paddle) {

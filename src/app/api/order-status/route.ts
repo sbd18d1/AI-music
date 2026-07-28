@@ -1,36 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Stripe from 'stripe';
 import { prisma } from '@/db/client';
 
 export const dynamic = 'force-dynamic';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-06-20',
-});
-
 export async function GET(request: NextRequest) {
   try {
     const urlParams = new URLSearchParams(request.url.split('?')[1]);
-    const sessionId = urlParams.get('session_id');
     const orderId = urlParams.get('order_id');
 
-    if (!sessionId && !orderId) {
+    if (!orderId) {
       return NextResponse.json(
-        { error: 'Missing session_id or order_id parameter' },
+        { error: 'Missing order_id parameter' },
         { status: 400 }
       );
     }
 
-    let order;
-    if (sessionId) {
-      order = await prisma.order.findFirst({
-        where: { stripeSessionId: sessionId },
-      });
-    } else {
-      order = await prisma.order.findUnique({
-        where: { id: orderId ?? undefined },
-      });
-    }
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+    });
 
     if (!order) {
       return NextResponse.json(
