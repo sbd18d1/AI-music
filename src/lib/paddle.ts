@@ -92,7 +92,7 @@ export function usePaddle(onEvent?: (eventName: string, data: unknown) => void) 
 
     try {
       const baseUrl = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000';
-      const checkoutConfig: CheckoutOpenOptions = {
+      const checkoutConfig: Partial<CheckoutOpenOptions> = {
         settings: {
           displayMode: 'overlay',
           theme: 'light',
@@ -119,7 +119,7 @@ export function usePaddle(onEvent?: (eventName: string, data: unknown) => void) 
         settings: checkoutConfig.settings ? { ...checkoutConfig.settings } : undefined,
       }));
 
-      paddle.Checkout.open(checkoutConfig);
+      paddle.Checkout.open(checkoutConfig as CheckoutOpenOptions);
       console.log('[Paddle] Checkout.open() called successfully');
     } catch (e) {
       console.error('[Paddle] openCheckout error:', e);
