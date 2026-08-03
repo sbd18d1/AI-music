@@ -6,6 +6,7 @@ import { join } from 'path';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
+export const maxDuration = 300;
 
 export async function GET(
   request: Request,
@@ -27,15 +28,21 @@ export async function GET(
 
     const isDev = process.env.NODE_ENV === 'development';
 
-    // Helper: download audio from URL and save to local file system
+    // Helper: download audio and save locally (only works in self-hosted/dev environments with writable FS)
+    // On Vercel, writes are not persisted, so falls back to proxying via stream-audio route.
     const downloadAndSaveAudio = async (audioUrl: string, orderId: string): Promise<string | null> => {
       try {
+        // Skip writing on Vercel — filesystem is read-only and /tmp is not served
+        if (process.env.VERCEL === '1' || process.env.NEXT_PUBLIC_VERCEL_ENV) {
+          console.log(`[${new Date().toISOString()}] Vercel env detected, skipping local audio save`);
+          return null;
+        }
+
         const res = await fetch(audioUrl);
         if (!res.ok) return null;
         const buffer = Buffer.from(await res.arrayBuffer());
         if (buffer.length < 100) return null; // invalid audio
         
-        // Save to public/audio/ directory
         const audioDir = join(process.cwd(), 'public', 'audio');
         await mkdir(audioDir, { recursive: true });
         const fileName = `${orderId}.mp3`;
@@ -50,14 +57,20 @@ export async function GET(
       }
     };
 
+    // Helper: resolve DB audioUrl to frontend URL
+    // - local paths (/audio/xxx.mp3): served directly
+    // - remote Suno URLs: proxied via /api/stream-audio/{orderId} (handles CORS + expiration)
+    const frontendUrlFor = (orderId: string, audioUrl: string): string => {
+      if (audioUrl.startsWith('/audio/')) return audioUrl;
+      return `/api/stream-audio/${orderId}`;
+    };
+
     // If already completed in DB, return immediately
     if (order.status === 'success' && order.audioUrl) {
       return NextResponse.json({
         success: true,
         status: 'completed',
-        audioUrl: order.audioUrl.startsWith('/audio/') 
-          ? order.audioUrl 
-          : (isDev ? order.audioUrl : `/api/stream-audio/${order.id}`),
+        audioUrl: frontendUrlFor(order.id, order.audioUrl),
         orderId: order.id,
         isPreview: !order.isFullVersion,
         lyrics: order.lyrics || '',
@@ -80,14 +93,14 @@ export async function GET(
     const result = await checkResultOnce(taskId);
 
     if (result.success && result.audioUrl) {
-      // Try to download and save audio locally (to avoid Suno URL expiration)
-      let finalAudioUrl = result.audioUrl;
+      // Try to download and save audio locally (only on self-hosted environments)
+      // On Vercel, this is skipped and Suno URL is stored in DB; stream-audio proxies it.
       const localPath = await downloadAndSaveAudio(result.audioUrl, order.id);
+      const finalAudioUrl = localPath || result.audioUrl;
       if (localPath) {
-        finalAudioUrl = localPath;
         console.log(`[${new Date().toISOString()}] Using local audio for order: ${order.id}`);
       } else {
-        console.log(`[${new Date().toISOString()}] Local save failed, using remote URL for order: ${order.id}`);
+        console.log(`[${new Date().toISOString()}] Saving Suno CDN URL to DB for order: ${order.id}`);
       }
 
       // Save to DB
@@ -103,15 +116,10 @@ export async function GET(
         },
       });
 
-      // Return local path if available, otherwise remote URL
-      const frontendUrl = localPath 
-        ? localPath  // local file, always valid
-        : (isDev ? result.audioUrl : `/api/stream-audio/${order.id}`);
-
       return NextResponse.json({
         success: true,
         status: 'completed',
-        audioUrl: frontendUrl,
+        audioUrl: frontendUrlFor(order.id, finalAudioUrl),
         orderId: order.id,
         isPreview: !order.isFullVersion,
         lyrics: result.lyrics || '',

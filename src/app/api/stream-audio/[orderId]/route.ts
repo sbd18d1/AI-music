@@ -5,6 +5,7 @@ import path from 'path';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
+export const maxDuration = 300;
 
 /**
  * Stream audio by orderId.

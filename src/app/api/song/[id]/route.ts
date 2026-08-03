@@ -4,6 +4,7 @@ import { MapGenreToImage } from '@/utils/helpers';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
+export const maxDuration = 300;
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -20,7 +21,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       );
     }
 
-    const isDev = process.env.NODE_ENV === 'development';
+    const audioUrlForFrontend = order.audioUrl
+      ? (order.audioUrl.startsWith('/audio/')
+          ? order.audioUrl
+          : `/api/stream-audio/${order.id}`)
+      : null;
 
     let coverImageUrl = order.coverImageUrl;
     if (!coverImageUrl) {
@@ -29,10 +34,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       const baseUrl = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000';
       coverImageUrl = `${baseUrl}${coverImageUrl}`;
     }
-
-    const audioUrlForFrontend = order.audioUrl
-      ? (isDev ? order.audioUrl : `/api/stream-audio/${order.id}`)
-      : null;
 
     return NextResponse.json({
       success: true,

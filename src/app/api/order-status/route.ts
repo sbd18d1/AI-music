@@ -223,12 +223,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const isDev = process.env.NODE_ENV === 'development';
-    // If audioUrl is already a local path (e.g., /audio/xxx.mp3), return it directly
+    // Local paths are served directly; remote Suno URLs go through /api/stream-audio/{orderId}
     const audioUrlForFrontend = order.audioUrl
       ? (order.audioUrl.startsWith('/audio/') 
-          ? order.audioUrl  // local file, always valid
-          : (isDev ? order.audioUrl : `/api/stream-audio/${order.id}`))
+          ? order.audioUrl 
+          : `/api/stream-audio/${order.id}`)
       : null;
 
     return NextResponse.json({
