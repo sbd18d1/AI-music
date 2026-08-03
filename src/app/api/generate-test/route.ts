@@ -178,6 +178,36 @@ export async function POST(request: NextRequest) {
         await recordTrialUsage(deviceId, ipAddress);
       }
 
+      // Save remote URL to DB; frontend uses /api/stream-audio for playback
+      // (works on both Vercel read-only FS and self-hosted)
+      if (AI_GENERATION_MODE === 'mock') {
+        // Mock mode: audioUrl is already a local path like /test-song.mp3
+        await prisma.order.update({
+          where: { id: order.id },
+          data: {
+            status: 'success',
+            audioUrl: aiResponse.audioUrl,
+            aiRequestId: aiResponse.requestId,
+            lyrics: aiResponse.lyrics || null,
+            title: aiResponse.title || null,
+            coverImageUrl: aiResponse.coverImageUrl || null,
+            duration: aiResponse.duration || null,
+          },
+        });
+
+        return NextResponse.json({
+          success: true,
+          audioUrl: aiResponse.audioUrl,
+          orderId: order.id,
+          isPreview: true,
+          lyrics: aiResponse.lyrics,
+          title: aiResponse.title,
+          coverImageUrl: aiResponse.coverImageUrl,
+          duration: aiResponse.duration,
+        });
+      }
+
+      // Real mode: save remote URL to DB, return stream-audio proxy URL to frontend
       await prisma.order.update({
         where: { id: order.id },
         data: {
@@ -191,13 +221,17 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      console.log(`[${new Date().toISOString()}] Trial successful for device: ${deviceId}, order: ${order.id}`);
+      // In development, return remote URL directly (browser uses VPN proxy).
+      // In production (Vercel), use stream-audio proxy (server can access remote directly).
+      const isDev = process.env.NODE_ENV === 'development';
+      const audioUrlForFrontend = isDev ? aiResponse.audioUrl : `/api/stream-audio/${order.id}`;
+      console.log(`[${new Date().toISOString()}] Trial successful for device: ${deviceId}, order: ${order.id}, audioUrl: ${audioUrlForFrontend}`);
 
       return NextResponse.json({
         success: true,
-        audioUrl: aiResponse.audioUrl,
+        audioUrl: audioUrlForFrontend,
         orderId: order.id,
-        isPreview: AI_GENERATION_MODE === 'mock',
+        isPreview: true,
         lyrics: aiResponse.lyrics,
         title: aiResponse.title,
         coverImageUrl: aiResponse.coverImageUrl,

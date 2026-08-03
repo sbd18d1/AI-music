@@ -50,11 +50,13 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      const streamUrl = `/api/stream-audio/${order.id}`;
+
       if (order.userEmail) {
         await sendSongEmail({
           email: order.userEmail,
           recipientName: order.recipientName,
-          audioUrl: aiResponse.audioUrl,
+          audioUrl: streamUrl,
         });
       }
 

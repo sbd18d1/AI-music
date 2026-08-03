@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Sparkles, Music, Heart, Zap, CreditCard, Loader2, Check, Rocket, Lock, ArrowRight, Download, Mail, RefreshCw } from 'lucide-react';
 import { getDeliveryStrategy, DELIVERY_MODE, type DeliveryStrategy, type DeviceSession } from '@/lib/deliveryStrategy';
 import EmailModal from '@/components/EmailModal';
@@ -84,9 +84,52 @@ export default function Home() {
   const [showPaidForm, setShowPaidForm] = useState(false);
 
   const [songConfig, setSongConfig] = useState<SongConfigSelection>(DEFAULT_SELECTION);
+  const [productPrice, setProductPrice] = useState<string>('$4.99');
+  const [priceLoading, setPriceLoading] = useState(true);
   
   const deliveryStrategy = getDeliveryStrategy();
-  const { isReady: paddleReady, openCheckout: openPaddleCheckout } = usePaddle();
+
+  const handlePaddleEvent = useCallback((eventName: string, eventData: unknown) => {
+    console.log('[Paddle] Event received:', eventName, eventData);
+    if (eventName === 'checkout.completed') {
+      const data = eventData as Record<string, unknown>;
+      console.log('[Paddle] Checkout completed:', data);
+      // Paddle uses snake_case: custom_data, not customData
+      const customData = (data?.custom_data ?? data?.customData) as { orderId?: string } | undefined;
+      const orderId = customData?.orderId;
+      alert('Payment successful! Your full song will be delivered shortly.');
+      if (orderId) {
+        window.location.href = `/order-status?order_id=${orderId}&provider=paddle`;
+      }
+    } else if (eventName === 'checkout.error' || eventName === 'checkout.payment.error') {
+      const data = eventData as Record<string, unknown>;
+      console.error('[Paddle] Checkout error (full):', JSON.stringify(data));
+      const errDetail = (data?.detail as string) || '';
+      const errCode = (data?.code as string) || '';
+      const errType = (data?.type as string) || '';
+      const errMsg = errDetail || errCode || errType || JSON.stringify(data) || 'Unknown error';
+      alert('Payment error: ' + errMsg + (errCode ? ` (Code: ${errCode})` : ''));
+    }
+  }, []);
+
+  const { isReady: paddleReady, openCheckout: openPaddleCheckout, fetchPrice: fetchPaddlePrice } = usePaddle(handlePaddleEvent);
+
+  // Fetch dynamic price from Paddle when ready
+  useEffect(() => {
+    if (paddleReady && fetchPaddlePrice) {
+      const priceId = process.env.NEXT_PUBLIC_PADDLE_PRICE_ID || '';
+      if (priceId) {
+        fetchPaddlePrice(priceId, 1).then((result) => {
+          if (result) {
+            setProductPrice(result.formattedTotal);
+          }
+          setPriceLoading(false);
+        });
+      } else {
+        setPriceLoading(false);
+      }
+    }
+  }, [paddleReady, fetchPaddlePrice]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -112,6 +155,7 @@ export default function Home() {
           localStorage.removeItem('has_used_free_trial');
           localStorage.removeItem('trial_song_data');
           localStorage.removeItem('instant_song_data');
+          localStorage.removeItem('instant_trial_used');
           localStorage.removeItem('session_lock_song_data');
           localStorage.removeItem('session_lock_device_token');
           localStorage.removeItem('session_lock_session');
@@ -371,23 +415,25 @@ export default function Home() {
       .then((response) => response.json())
       .then((data) => {
         setIsLoading(false);
-        if (data.success && data.transactionId) {
-          if (paddleReady && openPaddleCheckout) {
+        if (data.success && data.orderId) {
+          const priceId = process.env.NEXT_PUBLIC_PADDLE_PRICE_ID || '';
+          if (paddleReady && openPaddleCheckout && priceId) {
             openPaddleCheckout({
-              transactionId: data.transactionId,
+              items: [{ priceId, quantity: 1 }],
               email: userEmailAddress,
+              customData: { orderId: data.orderId },
             });
           } else {
-            window.location.href = `${process.env.NEXT_PUBLIC_URL}/order-status?order_id=${data.orderId}&provider=paddle`;
+            alert('Paddle not ready. Please try again.');
           }
         } else {
-          alert('Failed to create Paddle transaction: ' + (data.error || 'Unknown error'));
+          alert('Failed to create order: ' + (data.error || 'Unknown error'));
         }
       })
       .catch((error) => {
         setIsLoading(false);
         console.error('Error:', error);
-        alert('An error occurred');
+        alert('An error occurred: ' + (error?.message || 'Unknown network error'));
       });
   };
 
@@ -594,7 +640,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => handleBuyFullVersion()}
-                  disabled={isLoading}
+                  disabled={isLoading || priceLoading}
                   className="w-full bg-secondary text-base-content font-bold py-4 px-6 rounded-xl text-lg border-2 border-base-content shadow-sm hover:bg-secondary/90 transition-all flex items-center justify-center gap-3 active:translate-x-1 active:translate-y-1 active:shadow-none"
                 >
                   {isLoading ? (
@@ -602,10 +648,15 @@ export default function Home() {
                       <Loader2 className="w-6 h-6 animate-spin" />
                       Processing...
                     </>
+                  ) : priceLoading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Loading price...
+                    </>
                   ) : (
                     <>
                       <CreditCard className="w-6 h-6" />
-                      Create Full Song ($4.99)
+                      Create Full Song ({productPrice})
                     </>
                   )}
                 </button>
@@ -746,7 +797,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => handleBuyFullVersion()}
-                      disabled={isLoading}
+                      disabled={isLoading || priceLoading}
                       className="w-full bg-secondary text-base-content font-bold py-5 px-6 rounded-xl text-xl border-2 border-base-content shadow-sm hover:bg-secondary/90 transition-all flex items-center justify-center gap-3 active:translate-x-1 active:translate-y-1 active:shadow-none"
                     >
                       {isLoading ? (
@@ -754,10 +805,15 @@ export default function Home() {
                           <Loader2 className="w-6 h-6 animate-spin" />
                           Processing...
                         </>
+                      ) : priceLoading ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Loading price...
+                        </>
                       ) : (
                         <>
                           <CreditCard className="w-6 h-6" />
-                          Get Full Song ($4.99)
+                          Get Full Song ({productPrice})
                         </>
                       )}
                     </button>

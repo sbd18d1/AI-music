@@ -200,6 +200,11 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
+    if (!src) {
+      console.warn('[AudioPlayer] No src provided, skipping load');
+      return;
+    }
+    console.log('[AudioPlayer] Setting src:', src);
     audio.src = src;
     audio.load();
   }, [src]);
@@ -216,8 +221,22 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
     if (isPlaying) {
       audio.pause();
     } else {
+      if (!audio.src || audio.src === window.location.href) {
+        console.error('[AudioPlayer] No valid audio src. audioUrl prop:', src);
+        alert('Audio source is missing. Please generate a new song.');
+        return;
+      }
+      console.log('[AudioPlayer] Attempting play. src:', audio.src, 'readyState:', audio.readyState);
       audio.play().catch((error) => {
-        console.error('Playback failed:', error);
+        console.error('[AudioPlayer] Playback failed:', error.name, error.message, 'src:', audio.src, 'readyState:', audio.readyState, 'error:', audio.error);
+        setIsPlaying(false);
+        if (error.name === 'NotSupportedError') {
+          alert('Audio playback failed (source: ' + audio.src + '). The audio file may be unavailable. Please try generating a new song.');
+        } else if (error.name === 'NotAllowedError') {
+          alert('Playback blocked by browser. Please click the play button again to allow audio.');
+        } else {
+          alert('Playback error: ' + error.message);
+        }
       });
     }
   };

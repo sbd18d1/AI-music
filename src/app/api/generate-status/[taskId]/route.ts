@@ -22,10 +22,11 @@ export async function GET(
 
     // If already completed in DB, return immediately
     if (order.status === 'success' && order.audioUrl) {
+      const isDev = process.env.NODE_ENV === 'development';
       return NextResponse.json({
         success: true,
         status: 'completed',
-        audioUrl: order.audioUrl,
+        audioUrl: isDev ? order.audioUrl : `/api/stream-audio/${order.id}`,
         orderId: order.id,
         isPreview: !order.isFullVersion,
         lyrics: order.lyrics || '',
@@ -48,6 +49,7 @@ export async function GET(
     const result = await checkResultOnce(taskId);
 
     if (result.success && result.audioUrl) {
+      // Save remote URL to DB; frontend uses /api/stream-audio for playback
       await prisma.order.update({
         where: { id: order.id },
         data: {
@@ -60,10 +62,14 @@ export async function GET(
         },
       });
 
+      // In development, return remote URL directly (browser uses VPN proxy).
+      // In production (Vercel), use stream-audio proxy (server can access remote directly).
+      const isDev = process.env.NODE_ENV === 'development';
+      const audioUrlForFrontend = isDev ? result.audioUrl : `/api/stream-audio/${order.id}`;
       return NextResponse.json({
         success: true,
         status: 'completed',
-        audioUrl: result.audioUrl,
+        audioUrl: audioUrlForFrontend,
         orderId: order.id,
         isPreview: !order.isFullVersion,
         lyrics: result.lyrics || '',
