@@ -55,7 +55,7 @@ export function usePaddle(onEvent?: (eventName: string, data: unknown) => void) 
               displayMode: 'overlay',
               theme: 'light',
               locale: 'en',
-              successUrl: `${baseUrl}/order-status?order_id={orderId}&provider=paddle`,
+              successUrl: `${baseUrl}/order-status?provider=paddle`,
             },
           },
           eventCallback: (event) => {
@@ -97,7 +97,7 @@ export function usePaddle(onEvent?: (eventName: string, data: unknown) => void) 
           displayMode: 'overlay',
           theme: 'light',
           locale: 'en',
-          successUrl: options.successUrl || `${baseUrl}/order-status?order_id={orderId}&provider=paddle`,
+          successUrl: options.successUrl || `${baseUrl}/order-status?provider=paddle`,
         },
         customData: options.customData,
       };

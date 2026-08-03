@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
             where: { id: orderId },
             data: {
               status: 'success',
-              stripeSessionId: data.id || order.stripeSessionId,
+              paddleTransactionId: data.id,
               audioUrl: finalAudioUrl,
               lyrics: finalLyrics,
               title: finalTitle,
@@ -155,6 +155,7 @@ export async function POST(request: NextRequest) {
                 where: { id: orderId },
                 data: {
                   status: 'success',
+                  paddleTransactionId: data.id,
                   audioUrl: result.audioUrl,
                   lyrics: result.lyrics || null,
                   title: result.title || null,

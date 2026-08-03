@@ -18,9 +18,7 @@ model Order {
   selectedArtistStyle String?
   songConfig         String?
   status             String    @default("pending")
-  stripeSessionId    String?
-  stripePaymentIntentId String?
-  paypalOrderId      String?
+  paddleTransactionId String?
   aiRequestId        String?
   audioUrl           String?
   lyrics             String?
@@ -34,8 +32,7 @@ model Order {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  @@index([stripeSessionId])
-  @@index([paypalOrderId])
+  @@index([paddleTransactionId])
   @@index([aiRequestId])
   @@index([status])
   @@index([ipAddress])

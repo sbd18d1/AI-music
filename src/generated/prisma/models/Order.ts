@@ -35,9 +35,7 @@ export type OrderMinAggregateOutputType = {
   selectedArtistStyle: string | null
   songConfig: string | null
   status: string | null
-  stripeSessionId: string | null
-  stripePaymentIntentId: string | null
-  paypalOrderId: string | null
+  paddleTransactionId: string | null
   aiRequestId: string | null
   audioUrl: string | null
   lyrics: string | null
@@ -63,9 +61,7 @@ export type OrderMaxAggregateOutputType = {
   selectedArtistStyle: string | null
   songConfig: string | null
   status: string | null
-  stripeSessionId: string | null
-  stripePaymentIntentId: string | null
-  paypalOrderId: string | null
+  paddleTransactionId: string | null
   aiRequestId: string | null
   audioUrl: string | null
   lyrics: string | null
@@ -91,9 +87,7 @@ export type OrderCountAggregateOutputType = {
   selectedArtistStyle: number
   songConfig: number
   status: number
-  stripeSessionId: number
-  stripePaymentIntentId: number
-  paypalOrderId: number
+  paddleTransactionId: number
   aiRequestId: number
   audioUrl: number
   lyrics: number
@@ -121,9 +115,7 @@ export type OrderMinAggregateInputType = {
   selectedArtistStyle?: true
   songConfig?: true
   status?: true
-  stripeSessionId?: true
-  stripePaymentIntentId?: true
-  paypalOrderId?: true
+  paddleTransactionId?: true
   aiRequestId?: true
   audioUrl?: true
   lyrics?: true
@@ -149,9 +141,7 @@ export type OrderMaxAggregateInputType = {
   selectedArtistStyle?: true
   songConfig?: true
   status?: true
-  stripeSessionId?: true
-  stripePaymentIntentId?: true
-  paypalOrderId?: true
+  paddleTransactionId?: true
   aiRequestId?: true
   audioUrl?: true
   lyrics?: true
@@ -177,9 +167,7 @@ export type OrderCountAggregateInputType = {
   selectedArtistStyle?: true
   songConfig?: true
   status?: true
-  stripeSessionId?: true
-  stripePaymentIntentId?: true
-  paypalOrderId?: true
+  paddleTransactionId?: true
   aiRequestId?: true
   audioUrl?: true
   lyrics?: true
@@ -278,9 +266,7 @@ export type OrderGroupByOutputType = {
   selectedArtistStyle: string | null
   songConfig: string | null
   status: string
-  stripeSessionId: string | null
-  stripePaymentIntentId: string | null
-  paypalOrderId: string | null
+  paddleTransactionId: string | null
   aiRequestId: string | null
   audioUrl: string | null
   lyrics: string | null
@@ -327,9 +313,7 @@ export type OrderWhereInput = {
   selectedArtistStyle?: Prisma.StringNullableFilter<"Order"> | string | null
   songConfig?: Prisma.StringNullableFilter<"Order"> | string | null
   status?: Prisma.StringFilter<"Order"> | string
-  stripeSessionId?: Prisma.StringNullableFilter<"Order"> | string | null
-  stripePaymentIntentId?: Prisma.StringNullableFilter<"Order"> | string | null
-  paypalOrderId?: Prisma.StringNullableFilter<"Order"> | string | null
+  paddleTransactionId?: Prisma.StringNullableFilter<"Order"> | string | null
   aiRequestId?: Prisma.StringNullableFilter<"Order"> | string | null
   audioUrl?: Prisma.StringNullableFilter<"Order"> | string | null
   lyrics?: Prisma.StringNullableFilter<"Order"> | string | null
@@ -355,9 +339,7 @@ export type OrderOrderByWithRelationInput = {
   selectedArtistStyle?: Prisma.SortOrderInput | Prisma.SortOrder
   songConfig?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
-  stripeSessionId?: Prisma.SortOrderInput | Prisma.SortOrder
-  stripePaymentIntentId?: Prisma.SortOrderInput | Prisma.SortOrder
-  paypalOrderId?: Prisma.SortOrderInput | Prisma.SortOrder
+  paddleTransactionId?: Prisma.SortOrderInput | Prisma.SortOrder
   aiRequestId?: Prisma.SortOrderInput | Prisma.SortOrder
   audioUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   lyrics?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -386,9 +368,7 @@ export type OrderWhereUniqueInput = Prisma.AtLeast<{
   selectedArtistStyle?: Prisma.StringNullableFilter<"Order"> | string | null
   songConfig?: Prisma.StringNullableFilter<"Order"> | string | null
   status?: Prisma.StringFilter<"Order"> | string
-  stripeSessionId?: Prisma.StringNullableFilter<"Order"> | string | null
-  stripePaymentIntentId?: Prisma.StringNullableFilter<"Order"> | string | null
-  paypalOrderId?: Prisma.StringNullableFilter<"Order"> | string | null
+  paddleTransactionId?: Prisma.StringNullableFilter<"Order"> | string | null
   aiRequestId?: Prisma.StringNullableFilter<"Order"> | string | null
   audioUrl?: Prisma.StringNullableFilter<"Order"> | string | null
   lyrics?: Prisma.StringNullableFilter<"Order"> | string | null
@@ -414,9 +394,7 @@ export type OrderOrderByWithAggregationInput = {
   selectedArtistStyle?: Prisma.SortOrderInput | Prisma.SortOrder
   songConfig?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
-  stripeSessionId?: Prisma.SortOrderInput | Prisma.SortOrder
-  stripePaymentIntentId?: Prisma.SortOrderInput | Prisma.SortOrder
-  paypalOrderId?: Prisma.SortOrderInput | Prisma.SortOrder
+  paddleTransactionId?: Prisma.SortOrderInput | Prisma.SortOrder
   aiRequestId?: Prisma.SortOrderInput | Prisma.SortOrder
   audioUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   lyrics?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -448,9 +426,7 @@ export type OrderScalarWhereWithAggregatesInput = {
   selectedArtistStyle?: Prisma.StringNullableWithAggregatesFilter<"Order"> | string | null
   songConfig?: Prisma.StringNullableWithAggregatesFilter<"Order"> | string | null
   status?: Prisma.StringWithAggregatesFilter<"Order"> | string
-  stripeSessionId?: Prisma.StringNullableWithAggregatesFilter<"Order"> | string | null
-  stripePaymentIntentId?: Prisma.StringNullableWithAggregatesFilter<"Order"> | string | null
-  paypalOrderId?: Prisma.StringNullableWithAggregatesFilter<"Order"> | string | null
+  paddleTransactionId?: Prisma.StringNullableWithAggregatesFilter<"Order"> | string | null
   aiRequestId?: Prisma.StringNullableWithAggregatesFilter<"Order"> | string | null
   audioUrl?: Prisma.StringNullableWithAggregatesFilter<"Order"> | string | null
   lyrics?: Prisma.StringNullableWithAggregatesFilter<"Order"> | string | null
@@ -476,9 +452,7 @@ export type OrderCreateInput = {
   selectedArtistStyle?: string | null
   songConfig?: string | null
   status?: string
-  stripeSessionId?: string | null
-  stripePaymentIntentId?: string | null
-  paypalOrderId?: string | null
+  paddleTransactionId?: string | null
   aiRequestId?: string | null
   audioUrl?: string | null
   lyrics?: string | null
@@ -504,9 +478,7 @@ export type OrderUncheckedCreateInput = {
   selectedArtistStyle?: string | null
   songConfig?: string | null
   status?: string
-  stripeSessionId?: string | null
-  stripePaymentIntentId?: string | null
-  paypalOrderId?: string | null
+  paddleTransactionId?: string | null
   aiRequestId?: string | null
   audioUrl?: string | null
   lyrics?: string | null
@@ -532,9 +504,7 @@ export type OrderUpdateInput = {
   selectedArtistStyle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   songConfig?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
-  stripeSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  stripePaymentIntentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  paypalOrderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paddleTransactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   aiRequestId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lyrics?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -560,9 +530,7 @@ export type OrderUncheckedUpdateInput = {
   selectedArtistStyle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   songConfig?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
-  stripeSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  stripePaymentIntentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  paypalOrderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paddleTransactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   aiRequestId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lyrics?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -588,9 +556,7 @@ export type OrderCreateManyInput = {
   selectedArtistStyle?: string | null
   songConfig?: string | null
   status?: string
-  stripeSessionId?: string | null
-  stripePaymentIntentId?: string | null
-  paypalOrderId?: string | null
+  paddleTransactionId?: string | null
   aiRequestId?: string | null
   audioUrl?: string | null
   lyrics?: string | null
@@ -616,9 +582,7 @@ export type OrderUpdateManyMutationInput = {
   selectedArtistStyle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   songConfig?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
-  stripeSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  stripePaymentIntentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  paypalOrderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paddleTransactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   aiRequestId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lyrics?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -644,9 +608,7 @@ export type OrderUncheckedUpdateManyInput = {
   selectedArtistStyle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   songConfig?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
-  stripeSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  stripePaymentIntentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  paypalOrderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paddleTransactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   aiRequestId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lyrics?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -672,9 +634,7 @@ export type OrderCountOrderByAggregateInput = {
   selectedArtistStyle?: Prisma.SortOrder
   songConfig?: Prisma.SortOrder
   status?: Prisma.SortOrder
-  stripeSessionId?: Prisma.SortOrder
-  stripePaymentIntentId?: Prisma.SortOrder
-  paypalOrderId?: Prisma.SortOrder
+  paddleTransactionId?: Prisma.SortOrder
   aiRequestId?: Prisma.SortOrder
   audioUrl?: Prisma.SortOrder
   lyrics?: Prisma.SortOrder
@@ -700,9 +660,7 @@ export type OrderMaxOrderByAggregateInput = {
   selectedArtistStyle?: Prisma.SortOrder
   songConfig?: Prisma.SortOrder
   status?: Prisma.SortOrder
-  stripeSessionId?: Prisma.SortOrder
-  stripePaymentIntentId?: Prisma.SortOrder
-  paypalOrderId?: Prisma.SortOrder
+  paddleTransactionId?: Prisma.SortOrder
   aiRequestId?: Prisma.SortOrder
   audioUrl?: Prisma.SortOrder
   lyrics?: Prisma.SortOrder
@@ -728,9 +686,7 @@ export type OrderMinOrderByAggregateInput = {
   selectedArtistStyle?: Prisma.SortOrder
   songConfig?: Prisma.SortOrder
   status?: Prisma.SortOrder
-  stripeSessionId?: Prisma.SortOrder
-  stripePaymentIntentId?: Prisma.SortOrder
-  paypalOrderId?: Prisma.SortOrder
+  paddleTransactionId?: Prisma.SortOrder
   aiRequestId?: Prisma.SortOrder
   audioUrl?: Prisma.SortOrder
   lyrics?: Prisma.SortOrder
@@ -774,9 +730,7 @@ export type OrderSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   selectedArtistStyle?: boolean
   songConfig?: boolean
   status?: boolean
-  stripeSessionId?: boolean
-  stripePaymentIntentId?: boolean
-  paypalOrderId?: boolean
+  paddleTransactionId?: boolean
   aiRequestId?: boolean
   audioUrl?: boolean
   lyrics?: boolean
@@ -802,9 +756,7 @@ export type OrderSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   selectedArtistStyle?: boolean
   songConfig?: boolean
   status?: boolean
-  stripeSessionId?: boolean
-  stripePaymentIntentId?: boolean
-  paypalOrderId?: boolean
+  paddleTransactionId?: boolean
   aiRequestId?: boolean
   audioUrl?: boolean
   lyrics?: boolean
@@ -830,9 +782,7 @@ export type OrderSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   selectedArtistStyle?: boolean
   songConfig?: boolean
   status?: boolean
-  stripeSessionId?: boolean
-  stripePaymentIntentId?: boolean
-  paypalOrderId?: boolean
+  paddleTransactionId?: boolean
   aiRequestId?: boolean
   audioUrl?: boolean
   lyrics?: boolean
@@ -858,9 +808,7 @@ export type OrderSelectScalar = {
   selectedArtistStyle?: boolean
   songConfig?: boolean
   status?: boolean
-  stripeSessionId?: boolean
-  stripePaymentIntentId?: boolean
-  paypalOrderId?: boolean
+  paddleTransactionId?: boolean
   aiRequestId?: boolean
   audioUrl?: boolean
   lyrics?: boolean
@@ -875,7 +823,7 @@ export type OrderSelectScalar = {
   updatedAt?: boolean
 }
 
-export type OrderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "recipientName" | "personality" | "genre" | "userEmail" | "customerEmail" | "selectedStyle" | "selectedArtistStyle" | "songConfig" | "status" | "stripeSessionId" | "stripePaymentIntentId" | "paypalOrderId" | "aiRequestId" | "audioUrl" | "lyrics" | "title" | "coverImageUrl" | "duration" | "isFullVersion" | "ipAddress" | "deviceId" | "trialOrderId" | "createdAt" | "updatedAt", ExtArgs["result"]["order"]>
+export type OrderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "recipientName" | "personality" | "genre" | "userEmail" | "customerEmail" | "selectedStyle" | "selectedArtistStyle" | "songConfig" | "status" | "paddleTransactionId" | "aiRequestId" | "audioUrl" | "lyrics" | "title" | "coverImageUrl" | "duration" | "isFullVersion" | "ipAddress" | "deviceId" | "trialOrderId" | "createdAt" | "updatedAt", ExtArgs["result"]["order"]>
 
 export type $OrderPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Order"
@@ -891,9 +839,7 @@ export type $OrderPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     selectedArtistStyle: string | null
     songConfig: string | null
     status: string
-    stripeSessionId: string | null
-    stripePaymentIntentId: string | null
-    paypalOrderId: string | null
+    paddleTransactionId: string | null
     aiRequestId: string | null
     audioUrl: string | null
     lyrics: string | null
@@ -1339,9 +1285,7 @@ export interface OrderFieldRefs {
   readonly selectedArtistStyle: Prisma.FieldRef<"Order", 'String'>
   readonly songConfig: Prisma.FieldRef<"Order", 'String'>
   readonly status: Prisma.FieldRef<"Order", 'String'>
-  readonly stripeSessionId: Prisma.FieldRef<"Order", 'String'>
-  readonly stripePaymentIntentId: Prisma.FieldRef<"Order", 'String'>
-  readonly paypalOrderId: Prisma.FieldRef<"Order", 'String'>
+  readonly paddleTransactionId: Prisma.FieldRef<"Order", 'String'>
   readonly aiRequestId: Prisma.FieldRef<"Order", 'String'>
   readonly audioUrl: Prisma.FieldRef<"Order", 'String'>
   readonly lyrics: Prisma.FieldRef<"Order", 'String'>

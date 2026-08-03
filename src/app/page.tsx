@@ -97,9 +97,26 @@ export default function Home() {
       // Paddle uses snake_case: custom_data, not customData
       const customData = (data?.custom_data ?? data?.customData) as { orderId?: string } | undefined;
       const orderId = customData?.orderId;
-      alert('Payment successful! Your full song will be delivered shortly.');
+      const paddleTransactionId = data?.id as string | undefined;
+      
       if (orderId) {
+        // Save to sessionStorage as backup
+        sessionStorage.setItem('paddle_completed_order_id', orderId);
+        console.log('[Paddle] Saved orderId to sessionStorage:', orderId);
+        
+        // Redirect to order-status page with our UUID (not Paddle's ID)
         window.location.href = `/order-status?order_id=${orderId}&provider=paddle`;
+        
+        // Async: save paddleTransactionId to order for future reference
+        if (paddleTransactionId) {
+          fetch('/api/order-status', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId, paddleTransactionId }),
+          }).then(r => r.json())
+            .then(d => console.log('[Paddle] Saved transactionId:', d))
+            .catch(e => console.error('[Paddle] Failed to save transactionId:', e));
+        }
       }
     } else if (eventName === 'checkout.error' || eventName === 'checkout.payment.error') {
       const data = eventData as Record<string, unknown>;

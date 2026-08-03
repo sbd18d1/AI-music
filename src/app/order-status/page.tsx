@@ -31,7 +31,17 @@ export default function OrderStatus() {
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const orderId = urlParams.get('order_id');
+    let orderId = urlParams.get('order_id');
+
+    // Fallback: try sessionStorage (set by checkout.completed event)
+    if (!orderId || orderId === '{orderId}') {
+      orderId = sessionStorage.getItem('paddle_completed_order_id');
+      if (orderId) {
+        console.log('[order-status] Using orderId from sessionStorage:', orderId);
+        // Update URL with the correct orderId
+        window.history.replaceState({}, '', `/order-status?order_id=${orderId}&provider=paddle`);
+      }
+    }
 
     if (!orderId) {
       setError('No order ID found');
