@@ -94,29 +94,20 @@ export default function Home() {
     if (eventName === 'checkout.completed') {
       const data = eventData as Record<string, unknown>;
       console.log('[Paddle] Checkout completed:', data);
-      // Paddle uses snake_case: custom_data, not customData
       const customData = (data?.custom_data ?? data?.customData) as { orderId?: string } | undefined;
       const orderId = customData?.orderId;
       const paddleTransactionId = data?.id as string | undefined;
       
       if (orderId) {
-        // Save to sessionStorage as backup
+        // Save both IDs to sessionStorage so order-status page can trigger delivery
         sessionStorage.setItem('paddle_completed_order_id', orderId);
-        console.log('[Paddle] Saved orderId to sessionStorage:', orderId);
-        
-        // Redirect to order-status page with our UUID (not Paddle's ID)
-        window.location.href = `/order-status?order_id=${orderId}&provider=paddle`;
-        
-        // Async: save paddleTransactionId to order for future reference
         if (paddleTransactionId) {
-          fetch('/api/order-status', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderId, paddleTransactionId }),
-          }).then(r => r.json())
-            .then(d => console.log('[Paddle] Saved transactionId:', d))
-            .catch(e => console.error('[Paddle] Failed to save transactionId:', e));
+          sessionStorage.setItem('paddle_transaction_id', paddleTransactionId);
         }
+        console.log('[Paddle] Saved orderId:', orderId, 'paddleTxId:', paddleTransactionId);
+        
+        // Redirect - order-status page will handle fulfillment on load
+        window.location.href = `/order-status?order_id=${orderId}&provider=paddle`;
       }
     } else if (eventName === 'checkout.error' || eventName === 'checkout.payment.error') {
       const data = eventData as Record<string, unknown>;
@@ -214,13 +205,19 @@ export default function Home() {
     if (deliveryStrategy.hasUnpaidSong() || deliveryStrategy.getSavedSongData()) {
       const savedSong = deliveryStrategy.getSavedSongData();
       if (savedSong) {
-        setAudioUrl(savedSong.audioUrl);
-        setIsPreview(savedSong.isPreview);
-        setSongTitle(savedSong.title);
-        setSongLyrics(savedSong.lyrics);
-        setCoverImageUrl(savedSong.coverImageUrl);
-        setSongDuration(savedSong.duration);
-        setShowResult(true);
+        // Check if cached audioUrl is a proxy URL (old format), clear it
+        if (savedSong.audioUrl.includes('/api/stream-audio/')) {
+          console.log('[init] Clearing cached proxy URL, need fresh data');
+          deliveryStrategy.clearSongData();
+        } else {
+          setAudioUrl(savedSong.audioUrl);
+          setIsPreview(savedSong.isPreview);
+          setSongTitle(savedSong.title);
+          setSongLyrics(savedSong.lyrics);
+          setCoverImageUrl(savedSong.coverImageUrl);
+          setSongDuration(savedSong.duration);
+          setShowResult(true);
+        }
       }
       // Restore trial orderId from localStorage so it can be passed to payment flow
       const savedOrderId = localStorage.getItem('trial_order_id');
@@ -420,6 +417,59 @@ export default function Home() {
 
     if (trialOrderId) {
       payload.trialOrderId = trialOrderId;
+    }
+
+    payload.songConfig = songConfig;
+
+    fetch('/api/paddle/create-transaction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        setIsLoading(false);
+        if (data.success && data.orderId) {
+          const priceId = process.env.NEXT_PUBLIC_PADDLE_PRICE_ID || '';
+          if (paddleReady && openPaddleCheckout && priceId) {
+            openPaddleCheckout({
+              items: [{ priceId, quantity: 1 }],
+              email: userEmailAddress,
+              customData: { orderId: data.orderId },
+            });
+          } else {
+            alert('Paddle not ready. Please try again.');
+          }
+        } else {
+          alert('Failed to create order: ' + (data.error || 'Unknown error'));
+        }
+      })
+      .catch((error) => {
+        setIsLoading(false);
+        console.error('Error:', error);
+        alert('An error occurred: ' + (error?.message || 'Unknown network error'));
+      });
+  };
+
+  // 付费重新生成一首全新的歌（不使用试听歌曲，覆盖之前的试听结果）
+  const handleBuyNewSong = (email?: string) => {
+    const userEmailAddress = email || userEmail || undefined;
+    const personality = (formData.description || 'Custom song request').slice(0, 900);
+    const genre = deriveGenreFromConfig(songConfig);
+
+    setIsLoading(true);
+
+    const payload: Record<string, unknown> = {
+      recipientName: 'Gift Recipient',
+      personality: personality,
+      genre: genre,
+      selectedStyle: genre,
+      selectedArtistStyle: 'None',
+      // 不传 trialOrderId — 支付后系统会生成全新歌曲
+    };
+
+    if (userEmailAddress) {
+      payload.userEmail = userEmailAddress;
     }
 
     payload.songConfig = songConfig;
@@ -811,29 +861,47 @@ export default function Home() {
                   )}
 
                   {!paymentComplete && (
-                    <button
-                      type="button"
-                      onClick={() => handleBuyFullVersion()}
-                      disabled={isLoading || priceLoading}
-                      className="w-full bg-secondary text-base-content font-bold py-5 px-6 rounded-xl text-xl border-2 border-base-content shadow-sm hover:bg-secondary/90 transition-all flex items-center justify-center gap-3 active:translate-x-1 active:translate-y-1 active:shadow-none"
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="w-6 h-6 animate-spin" />
-                          Processing...
-                        </>
-                      ) : priceLoading ? (
-                        <>
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                          Loading price...
-                        </>
-                      ) : (
-                        <>
-                          <CreditCard className="w-6 h-6" />
-                          Get Full Song ({productPrice})
-                        </>
-                      )}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleBuyFullVersion()}
+                        disabled={isLoading || priceLoading}
+                        className="w-full bg-secondary text-base-content font-bold py-5 px-6 rounded-xl text-xl border-2 border-base-content shadow-sm hover:bg-secondary/90 transition-all flex items-center justify-center gap-3 active:translate-x-1 active:translate-y-1 active:shadow-none"
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="w-6 h-6 animate-spin" />
+                            Processing...
+                          </>
+                        ) : priceLoading ? (
+                          <>
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            Loading price...
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="w-6 h-6" />
+                            Get Full Song ({productPrice})
+                          </>
+                        )}
+                      </button>
+
+                      <div className="mt-4 text-center">
+                        <p className="text-base-content/50 text-sm mb-2">Not satisfied with this song?</p>
+                        <button
+                          type="button"
+                          onClick={() => handleBuyNewSong()}
+                          disabled={isLoading || priceLoading}
+                          className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-semibold text-lg underline-offset-4 hover:underline transition-colors disabled:opacity-50"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          Generate a Completely New Song Instead ({productPrice})
+                        </button>
+                        <p className="text-base-content/40 text-xs mt-2">
+                          Pays to generate a brand new song with your current settings, replacing this preview.
+                        </p>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>

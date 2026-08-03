@@ -1,11 +1,14 @@
 import { Resend } from 'resend';
 
 const AI_GENERATION_MODE = process.env.NEXT_PUBLIC_AI_GENERATION_MODE || 'mock';
-const RESEND_API_KEY = AI_GENERATION_MODE === 'mock' 
-  ? process.env.RESEND_API_KEY_TEST 
+const isDev = process.env.NODE_ENV === 'development';
+const RESEND_API_KEY = AI_GENERATION_MODE === 'mock'
+  ? process.env.RESEND_API_KEY_TEST
   : process.env.RESEND_API_KEY_LIVE;
 
-const RESEND_FROM_EMAIL = AI_GENERATION_MODE === 'mock'
+// 在开发环境或mock模式下使用 onboarding@resend.dev（无需域名验证）
+// 生产环境使用已验证的域名发件人
+const RESEND_FROM_EMAIL = (isDev || AI_GENERATION_MODE === 'mock')
   ? 'onboarding@resend.dev'
   : (process.env.RESEND_FROM_EMAIL || 'no-reply@aimusic.com');
 
@@ -209,8 +212,12 @@ export async function sendSongEmail(
         </html>
       `,
     });
-    console.log(`[${new Date().toISOString()}] Email sent successfully to: ${email}`);
-    console.log(`[${new Date().toISOString()}] Resend result:`, JSON.stringify(result, null, 2));
+    if (result.error) {
+      console.error(`[${new Date().toISOString()}] Resend API error for ${email}:`, JSON.stringify(result.error, null, 2));
+      throw new Error(`Resend API error: ${result.error.message}`);
+    }
+
+    console.log(`[${new Date().toISOString()}] Email sent successfully to: ${email}, id: ${result.data?.id}`);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Failed to send email to ${email}:`, error);
   }

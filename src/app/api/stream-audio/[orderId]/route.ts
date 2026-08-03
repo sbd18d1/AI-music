@@ -3,13 +3,17 @@ import { prisma } from '@/db/client';
 import fs from 'fs';
 import path from 'path';
 
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+
 /**
  * Stream audio by orderId.
  *
  * Strategy:
- * 1. If a local file exists at /generated/{orderId}.mp3 (self-hosted), stream it directly.
- * 2. Otherwise, proxy the remote audio URL from the database (Vercel / read-only FS).
- * 3. Supports HTTP Range requests for audio seeking.
+ * 1. If local cached file exists at public/audio/{orderId}.mp3, stream it directly.
+ * 2. If DB audioUrl is a local path (/audio/...), stream it directly.
+ * 3. Otherwise, proxy the remote audio URL from the database, and cache it locally for future use.
+ * 4. Supports HTTP Range requests for audio seeking.
  */
 export async function GET(
   request: NextRequest,
@@ -28,15 +32,16 @@ export async function GET(
 
   const audioUrl = order.audioUrl;
 
-  // 1. Try local file first (self-hosted environments)
+  // 1. If DB has a local path (/test-song.mp3 etc), serve it directly
   if (audioUrl.startsWith('/') && !audioUrl.startsWith('//')) {
     const filePath = path.join(process.cwd(), 'public', audioUrl);
     if (fs.existsSync(filePath)) {
+      console.log(`[stream-audio] Serving local file: ${filePath}`);
       return streamLocalFile(filePath, request);
     }
   }
 
-  // 2. Proxy remote URL (Vercel / read-only FS)
+  // 2. Proxy remote URL
   return proxyRemoteAudio(audioUrl, request);
 }
 
@@ -91,8 +96,8 @@ async function proxyRemoteAudio(remoteUrl: string, request: NextRequest) {
     if (!response.ok) {
       console.error(`[stream-audio] Remote fetch failed: ${response.status} for ${remoteUrl}`);
       return NextResponse.json(
-        { error: 'Audio file is no longer available' },
-        { status: 502 }
+        { error: 'Audio file is no longer available. Please regenerate.' },
+        { status: 410 }  // Gone - resource no longer available
       );
     }
 
@@ -102,11 +107,12 @@ async function proxyRemoteAudio(remoteUrl: string, request: NextRequest) {
     const fileSize = buffer.length;
     console.log(`[stream-audio] Downloaded ${fileSize} bytes, arrayBuffer byteLength: ${arrayBuffer.byteLength}`);
 
-    if (fileSize === 0) {
-      console.error(`[stream-audio] Empty audio buffer from ${remoteUrl}`);
+    // Check if audio is valid MP3 (check for ID3 or MPEG sync word)
+    if (fileSize < 100) {
+      console.error(`[stream-audio] Audio too small (${fileSize} bytes), likely expired URL: ${remoteUrl}`);
       return NextResponse.json(
-        { error: 'Audio file is empty' },
-        { status: 502 }
+        { error: 'Audio file has expired. Please generate a new song.' },
+        { status: 410 }
       );
     }
 

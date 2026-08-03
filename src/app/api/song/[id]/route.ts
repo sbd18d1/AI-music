@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/db/client';
 import { MapGenreToImage } from '@/utils/helpers';
 
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { id } = params;
@@ -17,6 +20,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       );
     }
 
+    const isDev = process.env.NODE_ENV === 'development';
+
     let coverImageUrl = order.coverImageUrl;
     if (!coverImageUrl) {
       coverImageUrl = MapGenreToImage(order.genre);
@@ -25,6 +30,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       coverImageUrl = `${baseUrl}${coverImageUrl}`;
     }
 
+    const audioUrlForFrontend = order.audioUrl
+      ? (isDev ? order.audioUrl : `/api/stream-audio/${order.id}`)
+      : null;
+
     return NextResponse.json({
       success: true,
       song: {
@@ -32,7 +41,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         title: order.title || `${order.recipientName}'s Song`,
         recipientName: order.recipientName,
         genre: order.genre,
-        audioUrl: order.audioUrl,
+        audioUrl: audioUrlForFrontend,
         lyrics: order.lyrics,
         coverImageUrl,
         duration: order.duration,

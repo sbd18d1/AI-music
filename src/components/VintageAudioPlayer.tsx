@@ -18,6 +18,7 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
   const watermarkAudioRef = useRef<HTMLAudioElement>(null);
   const watermarkTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const originalVolumeRef = useRef(1);
+  const watermarkUnlockedRef = useRef(false);
   
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -41,10 +42,37 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
     }
   }, []);
 
+  // Unlock watermark audio on mobile (must be triggered by user interaction)
+  const unlockWatermarkAudio = useCallback(() => {
+    if (watermarkUnlockedRef.current) return;
+    const watermarkAudio = watermarkAudioRef.current;
+    if (!watermarkAudio) return;
+
+    // Force load on iOS Safari (won't load until user interaction)
+    watermarkAudio.load();
+
+    // Play silently to unlock audio on mobile browsers
+    watermarkAudio.volume = 0;
+    watermarkAudio.play().then(() => {
+      watermarkAudio.pause();
+      watermarkAudio.currentTime = 0;
+      watermarkAudio.volume = 1;
+      watermarkUnlockedRef.current = true;
+      // Mark as loaded — on iOS, canplaythrough may never fire without user gesture
+      setWatermarkLoaded(true);
+      console.log('[Watermark] Audio unlocked + loaded for mobile playback');
+    }).catch((e) => {
+      console.warn('[Watermark] Unlock failed:', e);
+      // Still mark as unlocked + loaded so timer starts; play() will retry
+      watermarkUnlockedRef.current = true;
+      setWatermarkLoaded(true);
+    });
+  }, []);
+
   const playWatermark = useCallback(() => {
     if (!isPreview) return;
     if (!watermarkLoaded) {
-      console.log('Watermark audio not loaded yet');
+      console.log('[Watermark] Audio not loaded yet');
       return;
     }
     
@@ -52,29 +80,31 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
     const mainAudio = audioRef.current;
     
     if (!watermarkAudio || !mainAudio) {
-      console.log('Watermark audio refs not ready');
+      console.log('[Watermark] Refs not ready');
       return;
     }
     
     if (mainAudio.paused) {
-      console.log('Main audio is paused');
       return;
     }
 
-    console.log('Playing watermark...');
+    console.log('[Watermark] Playing...');
     
     watermarkAudio.currentTime = 0;
+    watermarkAudio.volume = 1;
     watermarkAudio.play().then(() => {
-      console.log('Watermark play succeeded');
+      console.log('[Watermark] Play succeeded');
       setIsPlayingWatermark(true);
       
       originalVolumeRef.current = mainAudio.volume;
       mainAudio.volume = originalVolumeRef.current * (1 - WATERMARK_VOLUME_REDUCTION);
-      console.log('Main audio volume reduced to:', mainAudio.volume);
     }).catch((error) => {
-      console.error('Watermark play failed:', error);
+      console.error('[Watermark] Play failed:', error);
+      // Re-attempt unlock
+      watermarkUnlockedRef.current = false;
+      unlockWatermarkAudio();
     });
-  }, [isPreview, watermarkLoaded]);
+  }, [isPreview, watermarkLoaded, unlockWatermarkAudio]);
 
   const stopWatermark = useCallback(() => {
     const watermarkAudio = watermarkAudioRef.current;
@@ -87,7 +117,6 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
     
     if (mainAudio && originalVolumeRef.current > 0) {
       mainAudio.volume = originalVolumeRef.current;
-      console.log('Main audio volume restored to:', mainAudio.volume);
     }
     
     setIsPlayingWatermark(false);
@@ -96,7 +125,7 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
   const startWatermarkTimer = useCallback(() => {
     if (!isPreview) return;
     
-    console.log('Starting watermark timer...');
+    console.log('[Watermark] Starting timer...');
     
     stopWatermark();
     
@@ -107,7 +136,6 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
     const scheduleWatermark = () => {
       if (watermarkLoaded) {
         watermarkTimerRef.current = setInterval(() => {
-          console.log('Watermark timer triggered');
           playWatermark();
         }, WATERMARK_INTERVAL);
       } else {
@@ -123,7 +151,6 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
     if (watermarkTimerRef.current) {
       clearInterval(watermarkTimerRef.current);
       watermarkTimerRef.current = null;
-      console.log('Watermark timer stopped');
     }
     stopWatermark();
     setWatermarkEnabled(false);
@@ -138,7 +165,9 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
     const handleDurationChange = () => updateDuration();
     const handlePlaying = () => {
       setIsPlaying(true);
+      // Unlock watermark audio on user-initiated play (required for mobile)
       if (isPreview) {
+        unlockWatermarkAudio();
         startWatermarkTimer();
       }
     };
@@ -172,19 +201,18 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
       audio.removeEventListener('ended', handleEnded);
       stopWatermarkTimer();
     };
-  }, [updateProgress, updateDuration, isPreview, startWatermarkTimer, stopWatermarkTimer]);
+  }, [updateProgress, updateDuration, isPreview, startWatermarkTimer, stopWatermarkTimer, unlockWatermarkAudio]);
 
   useEffect(() => {
     const watermarkAudio = watermarkAudioRef.current;
     if (!watermarkAudio) return;
 
     const handleWatermarkLoaded = () => {
-      console.log('Watermark audio loaded');
+      console.log('[Watermark] Audio loaded');
       setWatermarkLoaded(true);
     };
 
     const handleWatermarkEnded = () => {
-      console.log('Watermark ended, restoring volume');
       stopWatermark();
     };
 
@@ -227,6 +255,12 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
         return;
       }
       console.log('[AudioPlayer] Attempting play. src:', audio.src, 'readyState:', audio.readyState);
+      
+      // Unlock watermark audio on this user click (mobile requires user gesture)
+      if (isPreview) {
+        unlockWatermarkAudio();
+      }
+      
       audio.play().catch((error) => {
         console.error('[AudioPlayer] Playback failed:', error.name, error.message, 'src:', audio.src, 'readyState:', audio.readyState, 'error:', audio.error);
         setIsPlaying(false);
@@ -292,61 +326,41 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
           )}
         </button>
         
-        <div className="flex-1">
-          <div className="flex items-center gap-1 h-8">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
-              <div
-                key={i}
-                className="w-1 rounded-full bg-primary/60 transition-all"
-                style={{
-                  height: isPlaying 
-                    ? `${20 + Math.sin(Date.now() / 200 + i) * 15}px` 
-                    : `${10 + (i % 3) * 5}px`,
-                  opacity: isPlaying ? 0.8 + Math.sin(Date.now() / 150 + i) * 0.3 : 0.6,
-                }}
-              />
-            ))}
-          </div>
-          
-          <div className="relative h-2 mt-3 rounded-full overflow-hidden bg-base-300/50">
-            <div 
-              className="absolute left-0 top-0 h-full rounded-full bg-primary transition-all duration-100"
-              style={{ width: `${progressPercent}%` }}
-            />
-            <input
-              type="range"
-              min="0"
-              max={totalDuration || 180}
-              value={currentTime}
-              onChange={handleSeek}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-            <div 
-              className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-primary border-2 border-white shadow-sm pointer-events-none transition-all duration-100"
-              style={{ left: `calc(${progressPercent}% - 8px)` }}
-            />
-          </div>
-          
-          <div className="flex justify-between text-xs mt-2 text-base-content/70">
-            <span>{formatTime(currentTime)}</span>
-            <span>{formatTime(totalDuration)}</span>
-          </div>
-          
-          {isPreview && (
-            <div className="text-xs text-warning/80 mt-1 flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-warning animate-pulse" />
-              <span>Preview Mode - Watermark {watermarkEnabled ? 'active' : 'enabled'} {watermarkLoaded ? '(ready)' : '(loading...)'}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm font-mono text-base-content/70">
+              {formatTime(currentTime)} / {formatTime(totalDuration)}
+            </span>
+            <div className="flex items-center gap-2">
+              {isPreview && watermarkEnabled && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-secondary/20 text-base-content/60 flex items-center gap-1">
+                  <span className={`w-2 h-2 rounded-full ${isPlayingWatermark ? 'bg-secondary animate-pulse' : 'bg-base-content/30'}`} />
+                  Preview
+                </span>
+              )}
+              <button
+                onClick={toggleMute}
+                className="text-base-content/60 hover:text-base-content transition-colors"
+                aria-label={isMuted ? 'Unmute' : 'Mute'}
+              >
+                {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+              </button>
             </div>
-          )}
+          </div>
+          
+          <input
+            type="range"
+            min="0"
+            max={totalDuration || 0}
+            step="0.1"
+            value={currentTime}
+            onChange={handleSeek}
+            className="w-full h-2 rounded-full appearance-none cursor-pointer bg-base-300"
+            style={{
+              background: `linear-gradient(to right, hsl(var(--p)) ${progressPercent}%, hsl(var(--b3)) ${progressPercent}%)`,
+            }}
+          />
         </div>
-        
-        <button
-          onClick={toggleMute}
-          className="w-10 h-10 rounded-full bg-base-300/50 hover:bg-base-300 text-base-content flex items-center justify-center transition-all"
-          aria-label={isMuted ? 'Unmute' : 'Mute'}
-        >
-          {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-        </button>
       </div>
     </div>
   );

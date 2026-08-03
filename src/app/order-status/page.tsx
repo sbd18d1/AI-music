@@ -38,7 +38,6 @@ export default function OrderStatus() {
       orderId = sessionStorage.getItem('paddle_completed_order_id');
       if (orderId) {
         console.log('[order-status] Using orderId from sessionStorage:', orderId);
-        // Update URL with the correct orderId
         window.history.replaceState({}, '', `/order-status?order_id=${orderId}&provider=paddle`);
       }
     }
@@ -49,49 +48,118 @@ export default function OrderStatus() {
       return;
     }
 
-    const fetchOrder = async (retryCount: number = 0) => {
+    // Step 1: Check current order status
+    const initOrder = async () => {
       try {
         const response = await fetch(`/api/order-status?order_id=${orderId}`);
         const data = await response.json();
 
         if (data.success && data.order) {
-          setOrder(data.order);
+          const order = data.order;
+          setOrder(order);
 
-          if (data.order.status === 'pending' || data.order.status === 'processing') {
-            setTimeout(fetchOrder, 3000);
+          // If order is still pending, trigger fulfillment immediately
+          if (order.status === 'pending') {
+            console.log('[order-status] Order is pending, triggering fulfillment...');
+            const paddleTxId = sessionStorage.getItem('paddle_transaction_id') || undefined;
+            
+            try {
+              const fulfillRes = await fetch('/api/order-status', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId, paddleTransactionId: paddleTxId }),
+              });
+              const fulfillData = await fulfillRes.json();
+              console.log('[order-status] Fulfillment result:', fulfillData);
+              
+              // PUT returns { success, orderId, status } - refetch after fulfillment
+              if (fulfillData.success) {
+                // Refetch to get full order data
+                const refetchRes = await fetch(`/api/order-status?order_id=${orderId}`);
+                const refetchData = await refetchRes.json();
+                if (refetchData.success && refetchData.order) {
+                  setOrder(refetchData.order);
+                  if (refetchData.order.status !== 'pending' && refetchData.order.status !== 'processing') {
+                    setPolling(false);
+                    return;
+                  }
+                }
+              }
+            } catch (e) {
+              console.error('[order-status] Fulfillment failed:', e);
+            }
+          }
+
+          // Poll for status changes
+          if (order.status === 'pending' || order.status === 'processing') {
+            pollOrder(orderId);
           } else {
             setPolling(false);
-          }
-        } else {
-          if (retryCount < 5) {
-            console.log(`Order not found, retrying... (${retryCount + 1}/5)`);
-            setTimeout(() => fetchOrder(retryCount + 1), 2000);
-          } else {
-            setError(data.error || 'Order not found');
-            setIsLoading(false);
           }
         }
       } catch (err) {
         console.error('Failed to fetch order:', err);
-        if (retryCount < 5) {
-          setTimeout(() => fetchOrder(retryCount + 1), 2000);
-        } else {
-          setError('Failed to fetch order status');
-          setIsLoading(false);
-        }
+        setError('Failed to load order');
+        setIsLoading(false);
       }
     };
 
-    fetchOrder();
+    // Polling function for processing state
+    const pollOrder = (oid: string) => {
+      const fetchOrder = async (retryCount: number = 0) => {
+        try {
+          const response = await fetch(`/api/order-status?order_id=${oid}`);
+          const data = await response.json();
+
+          if (data.success && data.order) {
+            setOrder(data.order);
+
+            if (data.order.status === 'pending' || data.order.status === 'processing') {
+              setTimeout(() => fetchOrder(), 3000);
+            } else {
+              setPolling(false);
+            }
+          } else {
+            if (retryCount < 5) {
+              setTimeout(() => fetchOrder(retryCount + 1), 2000);
+            } else {
+              setError(data.error || 'Order not found');
+              setIsLoading(false);
+            }
+          }
+        } catch (err) {
+          console.error('Failed to fetch order:', err);
+          if (retryCount < 5) {
+            setTimeout(() => fetchOrder(retryCount + 1), 2000);
+          } else {
+            setError('Failed to fetch order status');
+            setIsLoading(false);
+          }
+        }
+      };
+      fetchOrder();
+    };
+
+    initOrder();
 
     return () => {
       setPolling(false);
     };
   }, []);
 
-  // 支付成功后自动下载
+  // 支付成功后自动下载 + 标记设备已付费
   useEffect(() => {
     if (order?.status === 'success' && order?.audioUrl && !autoDownloaded) {
+      // 标记设备已付费，这样回到主页时不会显示旧歌曲和"Get Full Song"按钮
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('device_has_paid', 'true');
+        localStorage.removeItem('instant_song_data');
+        localStorage.removeItem('instant_trial_used');
+        localStorage.removeItem('trial_song_data');
+        localStorage.removeItem('has_used_free_trial');
+        localStorage.removeItem('trial_order_id');
+        console.log('[order-status] Device marked as paid');
+      }
       setAutoDownloaded(true);
       const downloadAudio = async () => {
         try {

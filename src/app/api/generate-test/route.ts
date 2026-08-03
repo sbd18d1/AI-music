@@ -93,9 +93,10 @@ export async function POST(request: NextRequest) {
 
     if (existingTrialOrder && existingTrialOrder.audioUrl) {
       console.log(`[${new Date().toISOString()}] Reusing existing trial order ${existingTrialOrder.id} for device: ${deviceId}`);
+      const isLocalFile = existingTrialOrder.audioUrl.startsWith('/') && !existingTrialOrder.audioUrl.startsWith('//');
       return NextResponse.json({
         success: true,
-        audioUrl: existingTrialOrder.audioUrl,
+        audioUrl: isLocalFile ? existingTrialOrder.audioUrl : `/api/stream-audio/${existingTrialOrder.id}`,
         orderId: existingTrialOrder.id,
         isPreview: true,
         lyrics: existingTrialOrder.lyrics,
@@ -221,8 +222,6 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // In development, return remote URL directly (browser uses VPN proxy).
-      // In production (Vercel), use stream-audio proxy (server can access remote directly).
       const isDev = process.env.NODE_ENV === 'development';
       const audioUrlForFrontend = isDev ? aiResponse.audioUrl : `/api/stream-audio/${order.id}`;
       console.log(`[${new Date().toISOString()}] Trial successful for device: ${deviceId}, order: ${order.id}, audioUrl: ${audioUrlForFrontend}`);

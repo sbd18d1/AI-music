@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/db/client';
 import { checkResultOnce } from '@/lib/ai-music';
+import { writeFile, mkdir } from 'fs/promises';
+import { join } from 'path';
+
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 export async function GET(
   request: Request,
@@ -20,13 +25,39 @@ export async function GET(
       );
     }
 
+    const isDev = process.env.NODE_ENV === 'development';
+
+    // Helper: download audio from URL and save to local file system
+    const downloadAndSaveAudio = async (audioUrl: string, orderId: string): Promise<string | null> => {
+      try {
+        const res = await fetch(audioUrl);
+        if (!res.ok) return null;
+        const buffer = Buffer.from(await res.arrayBuffer());
+        if (buffer.length < 100) return null; // invalid audio
+        
+        // Save to public/audio/ directory
+        const audioDir = join(process.cwd(), 'public', 'audio');
+        await mkdir(audioDir, { recursive: true });
+        const fileName = `${orderId}.mp3`;
+        const filePath = join(audioDir, fileName);
+        await writeFile(filePath, buffer);
+        
+        console.log(`[${new Date().toISOString()}] Audio saved locally: ${filePath} (${buffer.length} bytes)`);
+        return `/audio/${fileName}`;
+      } catch (e) {
+        console.error(`[${new Date().toISOString()}] Failed to save audio locally:`, e);
+        return null;
+      }
+    };
+
     // If already completed in DB, return immediately
     if (order.status === 'success' && order.audioUrl) {
-      const isDev = process.env.NODE_ENV === 'development';
       return NextResponse.json({
         success: true,
         status: 'completed',
-        audioUrl: isDev ? order.audioUrl : `/api/stream-audio/${order.id}`,
+        audioUrl: order.audioUrl.startsWith('/audio/') 
+          ? order.audioUrl 
+          : (isDev ? order.audioUrl : `/api/stream-audio/${order.id}`),
         orderId: order.id,
         isPreview: !order.isFullVersion,
         lyrics: order.lyrics || '',
@@ -49,12 +80,22 @@ export async function GET(
     const result = await checkResultOnce(taskId);
 
     if (result.success && result.audioUrl) {
-      // Save remote URL to DB; frontend uses /api/stream-audio for playback
+      // Try to download and save audio locally (to avoid Suno URL expiration)
+      let finalAudioUrl = result.audioUrl;
+      const localPath = await downloadAndSaveAudio(result.audioUrl, order.id);
+      if (localPath) {
+        finalAudioUrl = localPath;
+        console.log(`[${new Date().toISOString()}] Using local audio for order: ${order.id}`);
+      } else {
+        console.log(`[${new Date().toISOString()}] Local save failed, using remote URL for order: ${order.id}`);
+      }
+
+      // Save to DB
       await prisma.order.update({
         where: { id: order.id },
         data: {
           status: 'success',
-          audioUrl: result.audioUrl,
+          audioUrl: finalAudioUrl,
           lyrics: result.lyrics || null,
           title: result.title || null,
           coverImageUrl: result.coverImageUrl || null,
@@ -62,14 +103,15 @@ export async function GET(
         },
       });
 
-      // In development, return remote URL directly (browser uses VPN proxy).
-      // In production (Vercel), use stream-audio proxy (server can access remote directly).
-      const isDev = process.env.NODE_ENV === 'development';
-      const audioUrlForFrontend = isDev ? result.audioUrl : `/api/stream-audio/${order.id}`;
+      // Return local path if available, otherwise remote URL
+      const frontendUrl = localPath 
+        ? localPath  // local file, always valid
+        : (isDev ? result.audioUrl : `/api/stream-audio/${order.id}`);
+
       return NextResponse.json({
         success: true,
         status: 'completed',
-        audioUrl: audioUrlForFrontend,
+        audioUrl: frontendUrl,
         orderId: order.id,
         isPreview: !order.isFullVersion,
         lyrics: result.lyrics || '',
