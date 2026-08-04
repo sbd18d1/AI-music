@@ -931,6 +931,13 @@ export default function Home() {
           <a href="/?reset=1" className="inline-block mt-4 text-base-content/30 hover:text-base-content/60 text-base underline">
             Reset (Clear all data)
           </a>
+          <div className="mt-6 pt-4 border-t border-base-300 text-xs text-base-content/40 space-y-1">
+            <p className="font-medium">Smart Music Lab is owned and operated by Qingdao Dianliu Information Technology Co., Ltd.</p>
+            <p>Company Registration No.: 91370213MAD9GFBR8X</p>
+            <p>Business Address: 303-30, Building 1, No. 568 Jiushuidong Road, Licang District, Qingdao City, Shandong Province</p>
+            <p>Contact Email: <a href="mailto:imallaboutyou@foxmail.com" className="hover:text-primary transition-colors">imallaboutyou@foxmail.com</a></p>
+            <p className="mt-2">© 2025 Smart Music Lab. All rights reserved.</p>
+          </div>
         </footer>
       </div>
 
