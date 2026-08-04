@@ -919,7 +919,9 @@ export default function Home() {
               imallaboutyou@foxmail.com
             </a>
           </div>
-          <div className="mt-4 flex items-center justify-center gap-4 text-sm text-base-content/50">
+          <div className="mt-4 flex items-center justify-center gap-4 text-sm text-base-content/50 flex-wrap">
+            <a href="/pricing" className="hover:text-primary transition-colors">Pricing</a>
+            <span className="text-base-content/30">·</span>
             <a href="/terms" className="hover:text-primary transition-colors">Terms of Service</a>
             <span className="text-base-content/30">·</span>
             <a href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</a>
