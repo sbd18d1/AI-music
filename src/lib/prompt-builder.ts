@@ -64,6 +64,17 @@ function buildSunoStyleTags(resolved: {
   if (resolved.vocalCharacter?.styleTag) parts.push(resolved.vocalCharacter.styleTag);
   if (resolved.emotionalVibe?.styleTag) parts.push(resolved.emotionalVibe.styleTag);
 
+  // Append keywords from all selected options
+  const allKeywords: string[] = [];
+  if (resolved.musicStyle?.keywords) allKeywords.push(...resolved.musicStyle.keywords);
+  if (resolved.audience?.keywords) allKeywords.push(...resolved.audience.keywords);
+  if (resolved.vocalCharacter?.keywords) allKeywords.push(...resolved.vocalCharacter.keywords);
+  if (resolved.emotionalVibe?.keywords) allKeywords.push(...resolved.emotionalVibe.keywords);
+
+  if (allKeywords.length > 0) {
+    parts.push(...allKeywords);
+  }
+
   const joined = parts.join(', ');
   return truncatePreservingWords(joined, MAX_SUNO_STYLE_TAG_LENGTH);
 }

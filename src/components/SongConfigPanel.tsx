@@ -12,6 +12,7 @@ export interface SongConfigOption {
   styleTag?: string;
   lyricInstruction?: string;
   genreValue?: string;
+  keywords?: string[];
 }
 
 export interface SongConfigDimension {

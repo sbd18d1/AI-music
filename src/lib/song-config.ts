@@ -23,6 +23,8 @@ export interface SongConfigOption {
   lyricInstruction?: string;
   /** 映射到旧版 genre 字段（用于数据库与兼容旧逻辑） */
   genreValue?: string;
+  /** 附加到 Suno 风格标签的关键词列表 */
+  keywords?: string[];
 }
 
 /**
@@ -84,6 +86,26 @@ export const MUSIC_STYLE_DIMENSION: SongConfigDimension = {
         '1960s protest folk, raw acoustic guitar strumming, poetic delivery, organic analog recording',
       genreValue: '60s/70s Pop Ballad',
     },
+    {
+      id: 'modern_acoustic_pop',
+      icon: '✨',
+      name: 'Modern Acoustic Pop',
+      description: 'Ed Sheeran style warm pop',
+      styleTag:
+        'modern acoustic pop, warm polished production, fingerpicked acoustic guitar, intimate pop tempo',
+      genreValue: 'Modern Pop',
+      keywords: ['modern acoustic pop', 'catchy guitar riff', 'upbeat acoustic groove', 'polished radio master', 'intimate pop tempo'],
+    },
+    {
+      id: 'upbeat_party_pop',
+      icon: '🎉',
+      name: 'Upbeat Party Pop',
+      description: 'Energetic & cheerful pop dance',
+      styleTag:
+        'upbeat party pop, energetic danceable rhythm, bright synth pads, fun uplifting beat',
+      genreValue: 'Modern Pop',
+      keywords: ['energetic pop', 'danceable rhythm', 'bright synth pads', 'fun uplifting beat', 'modern pop production'],
+    },
   ],
 };
 
@@ -96,6 +118,24 @@ export const AUDIENCE_DIMENSION: SongConfigDimension = {
   title: 'Who Is This Song For?',
   subtitle: 'We will tune the lyrics and sound for them',
   options: [
+    {
+      id: 'partner',
+      icon: '❤️',
+      name: 'For My Partner / Spouse',
+      description: 'Romantic love story',
+      styleTag: 'intimate romantic delivery, emotional depth, passionate vocal phrasing',
+      lyricInstruction: 'romantic themes, celebrating love story, shared memories, deep affection',
+      keywords: ['intimate romantic delivery', 'emotional depth', 'passionate vocal phrasing'],
+    },
+    {
+      id: 'parents',
+      icon: '🏡',
+      name: 'For Parents / Grandparents',
+      description: 'Gratitude & nostalgia',
+      styleTag: 'warm nostalgic delivery, honoring tone, heartfelt comforting resonance',
+      lyricInstruction: 'themes of gratitude, wisdom, lifetime memories, family heritage and appreciation',
+      keywords: ['warm nostalgic delivery', 'honoring tone', 'heartfelt comforting resonance'],
+    },
     {
       id: 'adults',
       icon: '👴',
@@ -173,6 +213,14 @@ export const VOCAL_CHARACTER_DIMENSION: SongConfigDimension = {
       name: 'The Pure Folk Whisperer',
       description: 'Karen Carpenter style',
       styleTag: 'clear soothing female folk vocal, soft vintage tone, warm and comforting',
+    },
+    {
+      id: 'modern_duet',
+      icon: '🎤',
+      name: 'Harmonious Duet',
+      description: 'Male & Female duet',
+      styleTag: 'male and female vocal duet, blended vocal harmonies, intertwining chorus lines, dynamic emotional back-and-forth',
+      keywords: ['male and female vocal duet', 'blended vocal harmonies', 'intertwining chorus lines', 'dynamic emotional back-and-forth'],
     },
   ],
 };

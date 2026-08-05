@@ -44,6 +44,7 @@ export type SongConfigOptionMinAggregateOutputType = {
   styleTag: string | null
   lyricInstruction: string | null
   genreValue: string | null
+  keywords: string | null
   sortOrder: number | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -59,6 +60,7 @@ export type SongConfigOptionMaxAggregateOutputType = {
   styleTag: string | null
   lyricInstruction: string | null
   genreValue: string | null
+  keywords: string | null
   sortOrder: number | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -74,6 +76,7 @@ export type SongConfigOptionCountAggregateOutputType = {
   styleTag: number
   lyricInstruction: number
   genreValue: number
+  keywords: number
   sortOrder: number
   createdAt: number
   updatedAt: number
@@ -99,6 +102,7 @@ export type SongConfigOptionMinAggregateInputType = {
   styleTag?: true
   lyricInstruction?: true
   genreValue?: true
+  keywords?: true
   sortOrder?: true
   createdAt?: true
   updatedAt?: true
@@ -114,6 +118,7 @@ export type SongConfigOptionMaxAggregateInputType = {
   styleTag?: true
   lyricInstruction?: true
   genreValue?: true
+  keywords?: true
   sortOrder?: true
   createdAt?: true
   updatedAt?: true
@@ -129,6 +134,7 @@ export type SongConfigOptionCountAggregateInputType = {
   styleTag?: true
   lyricInstruction?: true
   genreValue?: true
+  keywords?: true
   sortOrder?: true
   createdAt?: true
   updatedAt?: true
@@ -231,6 +237,7 @@ export type SongConfigOptionGroupByOutputType = {
   styleTag: string | null
   lyricInstruction: string | null
   genreValue: string | null
+  keywords: string | null
   sortOrder: number
   createdAt: Date
   updatedAt: Date
@@ -269,6 +276,7 @@ export type SongConfigOptionWhereInput = {
   styleTag?: Prisma.StringNullableFilter<"SongConfigOption"> | string | null
   lyricInstruction?: Prisma.StringNullableFilter<"SongConfigOption"> | string | null
   genreValue?: Prisma.StringNullableFilter<"SongConfigOption"> | string | null
+  keywords?: Prisma.StringNullableFilter<"SongConfigOption"> | string | null
   sortOrder?: Prisma.IntFilter<"SongConfigOption"> | number
   createdAt?: Prisma.DateTimeFilter<"SongConfigOption"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"SongConfigOption"> | Date | string
@@ -285,6 +293,7 @@ export type SongConfigOptionOrderByWithRelationInput = {
   styleTag?: Prisma.SortOrderInput | Prisma.SortOrder
   lyricInstruction?: Prisma.SortOrderInput | Prisma.SortOrder
   genreValue?: Prisma.SortOrderInput | Prisma.SortOrder
+  keywords?: Prisma.SortOrderInput | Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -304,6 +313,7 @@ export type SongConfigOptionWhereUniqueInput = Prisma.AtLeast<{
   styleTag?: Prisma.StringNullableFilter<"SongConfigOption"> | string | null
   lyricInstruction?: Prisma.StringNullableFilter<"SongConfigOption"> | string | null
   genreValue?: Prisma.StringNullableFilter<"SongConfigOption"> | string | null
+  keywords?: Prisma.StringNullableFilter<"SongConfigOption"> | string | null
   sortOrder?: Prisma.IntFilter<"SongConfigOption"> | number
   createdAt?: Prisma.DateTimeFilter<"SongConfigOption"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"SongConfigOption"> | Date | string
@@ -320,6 +330,7 @@ export type SongConfigOptionOrderByWithAggregationInput = {
   styleTag?: Prisma.SortOrderInput | Prisma.SortOrder
   lyricInstruction?: Prisma.SortOrderInput | Prisma.SortOrder
   genreValue?: Prisma.SortOrderInput | Prisma.SortOrder
+  keywords?: Prisma.SortOrderInput | Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -343,6 +354,7 @@ export type SongConfigOptionScalarWhereWithAggregatesInput = {
   styleTag?: Prisma.StringNullableWithAggregatesFilter<"SongConfigOption"> | string | null
   lyricInstruction?: Prisma.StringNullableWithAggregatesFilter<"SongConfigOption"> | string | null
   genreValue?: Prisma.StringNullableWithAggregatesFilter<"SongConfigOption"> | string | null
+  keywords?: Prisma.StringNullableWithAggregatesFilter<"SongConfigOption"> | string | null
   sortOrder?: Prisma.IntWithAggregatesFilter<"SongConfigOption"> | number
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"SongConfigOption"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"SongConfigOption"> | Date | string
@@ -357,6 +369,7 @@ export type SongConfigOptionCreateInput = {
   styleTag?: string | null
   lyricInstruction?: string | null
   genreValue?: string | null
+  keywords?: string | null
   sortOrder?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -373,6 +386,7 @@ export type SongConfigOptionUncheckedCreateInput = {
   styleTag?: string | null
   lyricInstruction?: string | null
   genreValue?: string | null
+  keywords?: string | null
   sortOrder?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -387,6 +401,7 @@ export type SongConfigOptionUpdateInput = {
   styleTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lyricInstruction?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   genreValue?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -403,6 +418,7 @@ export type SongConfigOptionUncheckedUpdateInput = {
   styleTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lyricInstruction?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   genreValue?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -418,6 +434,7 @@ export type SongConfigOptionCreateManyInput = {
   styleTag?: string | null
   lyricInstruction?: string | null
   genreValue?: string | null
+  keywords?: string | null
   sortOrder?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -432,6 +449,7 @@ export type SongConfigOptionUpdateManyMutationInput = {
   styleTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lyricInstruction?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   genreValue?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -447,6 +465,7 @@ export type SongConfigOptionUncheckedUpdateManyInput = {
   styleTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lyricInstruction?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   genreValue?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -472,6 +491,7 @@ export type SongConfigOptionCountOrderByAggregateInput = {
   styleTag?: Prisma.SortOrder
   lyricInstruction?: Prisma.SortOrder
   genreValue?: Prisma.SortOrder
+  keywords?: Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -491,6 +511,7 @@ export type SongConfigOptionMaxOrderByAggregateInput = {
   styleTag?: Prisma.SortOrder
   lyricInstruction?: Prisma.SortOrder
   genreValue?: Prisma.SortOrder
+  keywords?: Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -506,6 +527,7 @@ export type SongConfigOptionMinOrderByAggregateInput = {
   styleTag?: Prisma.SortOrder
   lyricInstruction?: Prisma.SortOrder
   genreValue?: Prisma.SortOrder
+  keywords?: Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -566,6 +588,7 @@ export type SongConfigOptionCreateWithoutDimensionInput = {
   styleTag?: string | null
   lyricInstruction?: string | null
   genreValue?: string | null
+  keywords?: string | null
   sortOrder?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -580,6 +603,7 @@ export type SongConfigOptionUncheckedCreateWithoutDimensionInput = {
   styleTag?: string | null
   lyricInstruction?: string | null
   genreValue?: string | null
+  keywords?: string | null
   sortOrder?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -623,6 +647,7 @@ export type SongConfigOptionScalarWhereInput = {
   styleTag?: Prisma.StringNullableFilter<"SongConfigOption"> | string | null
   lyricInstruction?: Prisma.StringNullableFilter<"SongConfigOption"> | string | null
   genreValue?: Prisma.StringNullableFilter<"SongConfigOption"> | string | null
+  keywords?: Prisma.StringNullableFilter<"SongConfigOption"> | string | null
   sortOrder?: Prisma.IntFilter<"SongConfigOption"> | number
   createdAt?: Prisma.DateTimeFilter<"SongConfigOption"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"SongConfigOption"> | Date | string
@@ -637,6 +662,7 @@ export type SongConfigOptionCreateManyDimensionInput = {
   styleTag?: string | null
   lyricInstruction?: string | null
   genreValue?: string | null
+  keywords?: string | null
   sortOrder?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -651,6 +677,7 @@ export type SongConfigOptionUpdateWithoutDimensionInput = {
   styleTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lyricInstruction?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   genreValue?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -665,6 +692,7 @@ export type SongConfigOptionUncheckedUpdateWithoutDimensionInput = {
   styleTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lyricInstruction?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   genreValue?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -679,6 +707,7 @@ export type SongConfigOptionUncheckedUpdateManyWithoutDimensionInput = {
   styleTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lyricInstruction?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   genreValue?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keywords?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -696,6 +725,7 @@ export type SongConfigOptionSelect<ExtArgs extends runtime.Types.Extensions.Inte
   styleTag?: boolean
   lyricInstruction?: boolean
   genreValue?: boolean
+  keywords?: boolean
   sortOrder?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -712,6 +742,7 @@ export type SongConfigOptionSelectCreateManyAndReturn<ExtArgs extends runtime.Ty
   styleTag?: boolean
   lyricInstruction?: boolean
   genreValue?: boolean
+  keywords?: boolean
   sortOrder?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -728,6 +759,7 @@ export type SongConfigOptionSelectUpdateManyAndReturn<ExtArgs extends runtime.Ty
   styleTag?: boolean
   lyricInstruction?: boolean
   genreValue?: boolean
+  keywords?: boolean
   sortOrder?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -744,12 +776,13 @@ export type SongConfigOptionSelectScalar = {
   styleTag?: boolean
   lyricInstruction?: boolean
   genreValue?: boolean
+  keywords?: boolean
   sortOrder?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type SongConfigOptionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "optionId" | "dimensionId" | "icon" | "name" | "description" | "styleTag" | "lyricInstruction" | "genreValue" | "sortOrder" | "createdAt" | "updatedAt", ExtArgs["result"]["songConfigOption"]>
+export type SongConfigOptionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "optionId" | "dimensionId" | "icon" | "name" | "description" | "styleTag" | "lyricInstruction" | "genreValue" | "keywords" | "sortOrder" | "createdAt" | "updatedAt", ExtArgs["result"]["songConfigOption"]>
 export type SongConfigOptionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   dimension?: boolean | Prisma.SongConfigDimensionDefaultArgs<ExtArgs>
 }
@@ -775,6 +808,7 @@ export type $SongConfigOptionPayload<ExtArgs extends runtime.Types.Extensions.In
     styleTag: string | null
     lyricInstruction: string | null
     genreValue: string | null
+    keywords: string | null
     sortOrder: number
     createdAt: Date
     updatedAt: Date
@@ -1211,6 +1245,7 @@ export interface SongConfigOptionFieldRefs {
   readonly styleTag: Prisma.FieldRef<"SongConfigOption", 'String'>
   readonly lyricInstruction: Prisma.FieldRef<"SongConfigOption", 'String'>
   readonly genreValue: Prisma.FieldRef<"SongConfigOption", 'String'>
+  readonly keywords: Prisma.FieldRef<"SongConfigOption", 'String'>
   readonly sortOrder: Prisma.FieldRef<"SongConfigOption", 'Int'>
   readonly createdAt: Prisma.FieldRef<"SongConfigOption", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"SongConfigOption", 'DateTime'>

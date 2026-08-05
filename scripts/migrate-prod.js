@@ -1,130 +1,154 @@
 /**
- * 生产数据库迁移脚本
- * 直接使用 libsql client 对生产 Turso 数据库执行 schema 变更
+ * 生产数据库完整迁移脚本
+ * 对比 Prisma schema 和生产数据库，自动添加缺失的列和索引
  * 用法: node scripts/migrate-prod.js
  */
 require('dotenv').config();
 const { createClient } = require('@libsql/client');
 
+// Prisma schema 中定义的所有列
+const SCHEMA = {
+  Order: {
+    columns: [
+      'id', 'recipientName', 'personality', 'genre', 'userEmail', 'customerEmail',
+      'selectedStyle', 'selectedArtistStyle', 'songConfig', 'status',
+      'paddleTransactionId', 'aiRequestId', 'audioUrl', 'lyrics', 'title',
+      'coverImageUrl', 'duration', 'isFullVersion', 'ipAddress', 'deviceId',
+      'trialOrderId', 'createdAt', 'updatedAt'
+    ],
+    columnTypes: {
+      'id': 'TEXT PRIMARY KEY',
+      'recipientName': 'TEXT NOT NULL',
+      'personality': 'TEXT NOT NULL',
+      'genre': 'TEXT NOT NULL',
+      'userEmail': 'TEXT',
+      'customerEmail': 'TEXT',
+      'selectedStyle': 'TEXT',
+      'selectedArtistStyle': 'TEXT',
+      'songConfig': 'TEXT',
+      'status': 'TEXT NOT NULL DEFAULT \'pending\'',
+      'paddleTransactionId': 'TEXT',
+      'aiRequestId': 'TEXT',
+      'audioUrl': 'TEXT',
+      'lyrics': 'TEXT',
+      'title': 'TEXT',
+      'coverImageUrl': 'TEXT',
+      'duration': 'TEXT',
+      'isFullVersion': 'BOOLEAN NOT NULL DEFAULT 0',
+      'ipAddress': 'TEXT',
+      'deviceId': 'TEXT',
+      'trialOrderId': 'TEXT',
+      'createdAt': 'TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP',
+      'updatedAt': 'TEXT NOT NULL',
+    },
+    indexes: [
+      'paddleTransactionId', 'aiRequestId', 'status', 'ipAddress', 'deviceId', 'trialOrderId'
+    ]
+  },
+  TrialUsage: {
+    columns: ['id', 'ipAddress', 'deviceId', 'usedAt'],
+    columnTypes: {
+      'id': 'TEXT PRIMARY KEY',
+      'ipAddress': 'TEXT',
+      'deviceId': 'TEXT',
+      'usedAt': 'TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP',
+    },
+    indexes: ['ipAddress', 'deviceId', 'usedAt']
+  }
+};
+
 async function migrateProd() {
-  // 使用生产数据库 URL（可通过环境变量覆盖）
   const dbUrl = process.env.PROD_TURSO_DATABASE_URL || process.env.TURSO_DATABASE_URL;
   const dbToken = process.env.PROD_TURSO_AUTH_TOKEN || process.env.TURSO_AUTH_TOKEN;
 
   if (!dbUrl || !dbToken) {
     console.error('❌ 缺少生产数据库环境变量');
-    console.error('请设置 PROD_TURSO_DATABASE_URL 和 PROD_TURSO_AUTH_TOKEN');
-    console.error('或者 TURSO_DATABASE_URL 和 TURSO_AUTH_TOKEN');
     process.exit(1);
   }
 
-  console.log(`🔗 连接生产数据库: ${dbUrl}`);
+  console.log(`🔗 连接生产数据库: ${dbUrl}\n`);
 
   const client = createClient({
     url: dbUrl,
     authToken: dbToken,
   });
 
-  const migrations = [
-    // Order 表 - 添加 deviceId 列
-    {
-      name: 'Add deviceId to Order',
-      check: "SELECT COUNT(*) as cnt FROM pragma_table_info('Order') WHERE name='deviceId'",
-      sql: "ALTER TABLE `Order` ADD COLUMN `deviceId` TEXT",
-    },
-    // TrialUsage 表 - 添加 deviceId 列
-    {
-      name: 'Add deviceId to TrialUsage',
-      check: "SELECT COUNT(*) as cnt FROM pragma_table_info('TrialUsage') WHERE name='deviceId'",
-      sql: "ALTER TABLE `TrialUsage` ADD COLUMN `deviceId` TEXT",
-    },
-    // Order 表 - 添加 trialOrderId 列
-    {
-      name: 'Add trialOrderId to Order',
-      check: "SELECT COUNT(*) as cnt FROM pragma_table_info('Order') WHERE name='trialOrderId'",
-      sql: "ALTER TABLE `Order` ADD COLUMN `trialOrderId` TEXT",
-    },
-    // Order 表 - 添加 selectedArtistStyle 列
-    {
-      name: 'Add selectedArtistStyle to Order',
-      check: "SELECT COUNT(*) as cnt FROM pragma_table_info('Order') WHERE name='selectedArtistStyle'",
-      sql: "ALTER TABLE `Order` ADD COLUMN `selectedArtistStyle` TEXT",
-    },
-    // Order 表 - 添加 coverImageUrl 列
-    {
-      name: 'Add coverImageUrl to Order',
-      check: "SELECT COUNT(*) as cnt FROM pragma_table_info('Order') WHERE name='coverImageUrl'",
-      sql: "ALTER TABLE `Order` ADD COLUMN `coverImageUrl` TEXT",
-    },
-    // Order 表 - 添加 duration 列
-    {
-      name: 'Add duration to Order',
-      check: "SELECT COUNT(*) as cnt FROM pragma_table_info('Order') WHERE name='duration'",
-      sql: "ALTER TABLE `Order` ADD COLUMN `duration` TEXT",
-    },
-  ];
+  for (const [tableName, schema] of Object.entries(SCHEMA)) {
+    console.log(`📋 处理表: ${tableName}`);
 
-  console.log('\n📋 开始迁移...\n');
-
-  for (const migration of migrations) {
+    // 检查表是否存在
+    let tableExists = false;
     try {
-      // 检查列是否已存在
-      const checkResult = await client.execute(migration.check);
-      const count = checkResult.rows[0]?.cnt || 0;
+      const tableCheck = await client.execute({
+        sql: "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+        args: [tableName],
+      });
+      tableExists = tableCheck.rows.length > 0;
+    } catch (e) {
+      // ignore
+    }
 
-      if (count > 0) {
-        console.log(`⏭️  跳过: ${migration.name} (列已存在)`);
+    if (!tableExists) {
+      // 创建表
+      const colDefs = schema.columns.map(c => `\`${c}\` ${schema.columnTypes[c]}`).join(', ');
+      const createSql = `CREATE TABLE \`${tableName}\` (${colDefs})`;
+      try {
+        await client.execute(createSql);
+        console.log(`  ✅ 创建表: ${tableName}`);
+      } catch (e) {
+        console.error(`  ❌ 创建表失败: ${tableName} - ${e.message}`);
+        continue;
+      }
+    } else {
+      // 获取现有列
+      let existingCols = [];
+      try {
+        const colsResult = await client.execute(`PRAGMA table_info(\`${tableName}\`)`);
+        existingCols = colsResult.rows.map(r => r.name);
+      } catch (e) {
+        console.error(`  ❌ 无法读取 ${tableName} 列信息: ${e.message}`);
         continue;
       }
 
-      // 执行迁移
-      await client.execute(migration.sql);
-      console.log(`✅ 完成: ${migration.name}`);
-    } catch (error) {
-      console.error(`❌ 失败: ${migration.name}`);
-      console.error(`   错误: ${error.message}`);
-      // 继续执行下一个迁移
+      // 添加缺失的列
+      for (const col of schema.columns) {
+        if (!existingCols.includes(col)) {
+          const colType = schema.columnTypes[col] || 'TEXT';
+          try {
+            await client.execute(`ALTER TABLE \`${tableName}\` ADD COLUMN \`${col}\` ${colType}`);
+            console.log(`  ✅ 添加列: ${tableName}.${col}`);
+          } catch (e) {
+            console.error(`  ❌ 添加列失败: ${tableName}.${col} - ${e.message}`);
+          }
+        } else {
+          console.log(`  ⏭️  跳过: ${tableName}.${col} (已存在)`);
+        }
+      }
     }
-  }
 
-  // 创建索引（如果不存在）
-  const indexes = [
-    {
-      name: 'Order_deviceId_index',
-      sql: 'CREATE INDEX IF NOT EXISTS `Order_deviceId_index` ON `Order`(`deviceId`)',
-    },
-    {
-      name: 'TrialUsage_deviceId_index',
-      sql: 'CREATE INDEX IF NOT EXISTS `TrialUsage_deviceId_index` ON `TrialUsage`(`deviceId`)',
-    },
-    {
-      name: 'Order_trialOrderId_index',
-      sql: 'CREATE INDEX IF NOT EXISTS `Order_trialOrderId_index` ON `Order`(`trialOrderId`)',
-    },
-  ];
-
-  console.log('\n📋 创建索引...\n');
-
-  for (const index of indexes) {
-    try {
-      await client.execute(index.sql);
-      console.log(`✅ 索引: ${index.name}`);
-    } catch (error) {
-      console.error(`❌ 索引失败: ${index.name} - ${error.message}`);
+    // 创建索引
+    for (const col of schema.indexes) {
+      const indexName = `${tableName}_${col}_index`;
+      try {
+        await client.execute(`CREATE INDEX IF NOT EXISTS \`${indexName}\` ON \`${tableName}\`(\`${col}\`)`);
+        console.log(`  ✅ 索引: ${indexName}`);
+      } catch (e) {
+        console.error(`  ❌ 索引失败: ${indexName} - ${e.message}`);
+      }
     }
+
+    console.log('');
   }
 
   // 验证最终 schema
-  console.log('\n📋 验证 Schema:\n');
-
-  const tables = ['Order', 'TrialUsage'];
-  for (const table of tables) {
+  console.log('📋 验证 Schema:\n');
+  for (const tableName of Object.keys(SCHEMA)) {
     try {
-      const cols = await client.execute(`PRAGMA table_info(${table})`);
+      const cols = await client.execute(`PRAGMA table_info(\`${tableName}\`)`);
       const colNames = cols.rows.map(r => r.name).join(', ');
-      console.log(`📊 ${table}: ${colNames}`);
-    } catch (error) {
-      console.error(`❌ 无法读取 ${table} schema: ${error.message}`);
+      console.log(`📊 ${tableName}: ${colNames}`);
+    } catch (e) {
+      console.error(`❌ 无法读取 ${tableName}: ${e.message}`);
     }
   }
 
