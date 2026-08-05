@@ -43,9 +43,10 @@ export async function GET() {
           let keywords: string[] | undefined;
           if (opt.keywords) {
             try {
-              keywords = typeof opt.keywords === 'string' 
-                ? JSON.parse(opt.keywords) 
-                : opt.keywords as string[];
+              const raw = opt.keywords;
+              keywords = typeof raw === 'string'
+                ? JSON.parse(raw)
+                : (raw as unknown as string[]);
             } catch {
               keywords = undefined;
             }
