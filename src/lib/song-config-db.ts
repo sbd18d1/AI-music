@@ -9,6 +9,7 @@ export interface SongConfigOptionDb {
   styleTag?: string;
   lyricInstruction?: string;
   genreValue?: string;
+  keywords?: string[];
 }
 
 const getClient = () => tursoClient;
@@ -46,6 +47,7 @@ export async function resolveSelectionFromDb(
         styleTag: (option.styleTag as string) || undefined,
         lyricInstruction: (option.lyricInstruction as string) || undefined,
         genreValue: (option.genreValue as string) || undefined,
+        keywords: option.keywords ? JSON.parse(option.keywords as string) : undefined,
       };
     }
   }
@@ -101,6 +103,7 @@ export async function getAllDimensions(): Promise<{
         styleTag: (opt.styleTag as string) || undefined,
         lyricInstruction: (opt.lyricInstruction as string) || undefined,
         genreValue: (opt.genreValue as string) || undefined,
+        keywords: opt.keywords ? JSON.parse(opt.keywords as string) : undefined,
       })),
     });
   }

@@ -132,6 +132,7 @@ export const SongConfigOptionScalarFieldEnum = {
   styleTag: 'styleTag',
   lyricInstruction: 'lyricInstruction',
   genreValue: 'genreValue',
+  keywords: 'keywords',
   sortOrder: 'sortOrder',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
