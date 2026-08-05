@@ -39,29 +39,15 @@ export async function GET() {
         id: dim.dimensionId as string,
         title: dim.title as string,
         subtitle: (dim.subtitle as string) || undefined,
-        options: optsResult.rows.map((opt) => {
-          let keywords: string[] | undefined;
-          if (opt.keywords) {
-            try {
-              const raw = opt.keywords;
-              keywords = typeof raw === 'string'
-                ? JSON.parse(raw)
-                : (raw as unknown as string[]);
-            } catch {
-              keywords = undefined;
-            }
-          }
-          return {
-            id: opt.optionId as string,
-            icon: opt.icon as string,
-            name: opt.name as string,
-            description: opt.description as string,
-            styleTag: (opt.styleTag as string) || undefined,
-            lyricInstruction: (opt.lyricInstruction as string) || undefined,
-            genreValue: (opt.genreValue as string) || undefined,
-            keywords,
-          };
-        }),
+        options: optsResult.rows.map((opt) => ({
+          id: opt.optionId as string,
+          icon: opt.icon as string,
+          name: opt.name as string,
+          description: opt.description as string,
+          styleTag: (opt.styleTag as string) || undefined,
+          lyricInstruction: (opt.lyricInstruction as string) || undefined,
+          genreValue: (opt.genreValue as string) || undefined,
+        })),
       });
     }
 
