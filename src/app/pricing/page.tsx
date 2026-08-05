@@ -18,7 +18,7 @@ export default function PricingPage() {
               <div className="bg-gradient-to-br from-primary/10 to-secondary/10 rounded-xl p-6 border-2 border-primary">
                 <div className="text-center">
                   <h2 className="text-2xl font-bold text-primary mb-2">One Song</h2>
-                  <p className="text-4xl font-bold text-base-content mb-1">$9.99</p>
+                  <p className="text-4xl font-bold text-base-content mb-1">$9.90</p>
                   <p className="text-base-content/60 text-sm mb-4">per song</p>
                   <ul className="text-left space-y-2 text-sm">
                     <li className="flex items-start gap-2">
@@ -65,7 +65,7 @@ export default function PricingPage() {
                   </li>
                   <li className="flex gap-2">
                     <span className="bg-primary text-primary-content rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
-                    <span>Pay $9.99 to unlock the full song</span>
+                    <span>Pay $9.90 to unlock the full song</span>
                   </li>
                   <li className="flex gap-2">
                     <span className="bg-primary text-primary-content rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">4</span>
@@ -78,7 +78,7 @@ export default function PricingPage() {
             <div>
               <h2 className="text-xl font-semibold text-base-content mb-2">Important Information</h2>
               <ul className="list-disc list-inside space-y-1 text-sm">
-                <li>Each song is a separate one-time purchase at $9.99</li>
+                <li>Each song is a separate one-time purchase at $9.90</li>
                 <li>No subscriptions, no recurring fees</li>
                 <li>Prices listed in USD (United States Dollars)</li>
                 <li>Taxes may apply based on your location</li>
@@ -97,7 +97,7 @@ export default function PricingPage() {
               <div className="bg-gradient-to-br from-primary/10 to-secondary/10 rounded-xl p-6 border-2 border-primary">
                 <div className="text-center">
                   <h2 className="text-2xl font-bold text-primary mb-2">单曲购买</h2>
-                  <p className="text-4xl font-bold text-base-content mb-1">$9.99</p>
+                  <p className="text-4xl font-bold text-base-content mb-1">$9.90</p>
                   <p className="text-base-content/60 text-sm mb-4">每首歌曲</p>
                   <ul className="text-left space-y-2 text-sm">
                     <li className="flex items-start gap-2">
@@ -144,7 +144,7 @@ export default function PricingPage() {
                   </li>
                   <li className="flex gap-2">
                     <span className="bg-primary text-primary-content rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
-                    <span>支付 $9.99 解锁完整歌曲</span>
+                    <span>支付 $9.90 解锁完整歌曲</span>
                   </li>
                   <li className="flex gap-2">
                     <span className="bg-primary text-primary-content rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">4</span>
@@ -157,7 +157,7 @@ export default function PricingPage() {
             <div>
               <h2 className="text-xl font-semibold text-base-content mb-2">重要信息</h2>
               <ul className="list-disc list-inside space-y-1 text-sm">
-                <li>每首歌曲为独立一次性购买，价格 $9.99</li>
+                <li>每首歌曲为独立一次性购买，价格 $9.90</li>
                 <li>无订阅费用，无自动续费</li>
                 <li>价格以美元（USD）标价</li>
                 <li>税费可能根据您的所在地适用</li>

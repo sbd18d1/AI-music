@@ -84,8 +84,8 @@ export default function Home() {
   const [showPaidForm, setShowPaidForm] = useState(false);
 
   const [songConfig, setSongConfig] = useState<SongConfigSelection>(DEFAULT_SELECTION);
-  const [productPrice, setProductPrice] = useState<string>('$4.99');
-  const [priceLoading, setPriceLoading] = useState(true);
+  const [productPrice, setProductPrice] = useState<string>('$9.90');
+  const [priceLoading, setPriceLoading] = useState(false);
   
   const deliveryStrategy = getDeliveryStrategy();
 
@@ -122,22 +122,8 @@ export default function Home() {
 
   const { isReady: paddleReady, openCheckout: openPaddleCheckout, fetchPrice: fetchPaddlePrice } = usePaddle(handlePaddleEvent);
 
-  // Fetch dynamic price from Paddle when ready
-  useEffect(() => {
-    if (paddleReady && fetchPaddlePrice) {
-      const priceId = process.env.NEXT_PUBLIC_PADDLE_PRICE_ID || '';
-      if (priceId) {
-        fetchPaddlePrice(priceId, 1).then((result) => {
-          if (result) {
-            setProductPrice(result.formattedTotal);
-          }
-          setPriceLoading(false);
-        });
-      } else {
-        setPriceLoading(false);
-      }
-    }
-  }, [paddleReady, fetchPaddlePrice]);
+  // Price is hardcoded to $9.90 for now (Paddle account pending configuration)
+  // Dynamic price fetching disabled until Paddle configuration is approved
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
