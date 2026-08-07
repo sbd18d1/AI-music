@@ -380,6 +380,10 @@ export default function Home() {
   };
 
   const handleBuyFullVersion = (email?: string) => {
+    if (!formData.description) {
+      alert('Please fill in the description');
+      return;
+    }
     const userEmailAddress = email || userEmail || undefined;
     const personality = (formData.description || 'Custom song request').slice(0, 900);
     const genre = deriveGenreFromConfig(songConfig);
