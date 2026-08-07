@@ -67,7 +67,7 @@ export default function PrivacyPage() {
                 <li>Object to or restrict processing of your data</li>
                 <li>Export your data in a portable format</li>
               </ul>
-              <p className="mt-2">To exercise these rights, contact us at <a href="mailto:zyr950608@gmail.com" className="text-primary hover:underline">zyr950608@gmail.com</a>.</p>
+              <p className="mt-2">To exercise these rights, contact us at <a href="mailto:support@smartmusiclab.com" className="text-primary hover:underline">support@smartmusiclab.com</a>.</p>
             </div>
 
             <div>
@@ -109,7 +109,7 @@ export default function PrivacyPage() {
               <h2 className="text-xl font-semibold text-base-content mb-2">10. Contact Us</h2>
               <p>
                 If you have any questions about this Privacy Policy, please contact us at{' '}
-                <a href="mailto:zyr950608@gmail.com" className="text-primary hover:underline">zyr950608@gmail.com</a>
+                <a href="mailto:support@smartmusiclab.com" className="text-primary hover:underline">support@smartmusiclab.com</a>
               </p>
             </div>
           </section>
@@ -171,7 +171,7 @@ export default function PrivacyPage() {
                 <li>反对或限制处理您的数据</li>
                 <li>以可移植格式导出您的数据</li>
               </ul>
-              <p className="mt-2">要行使这些权利，请联系 <a href="mailto:zyr950608@gmail.com" className="text-primary hover:underline">zyr950608@gmail.com</a>。</p>
+              <p className="mt-2">要行使这些权利，请联系 <a href="mailto:support@smartmusiclab.com" className="text-primary hover:underline">support@smartmusiclab.com</a>。</p>
             </div>
 
             <div>
@@ -210,7 +210,7 @@ export default function PrivacyPage() {
             <div>
               <h2 className="text-xl font-semibold text-base-content mb-2">十、联系我们</h2>
               <p>
-                如您对本隐私政策有任何疑问，请通过 <a href="mailto:zyr950608@gmail.com" className="text-primary hover:underline">zyr950608@gmail.com</a> 联系我们。
+                如您对本隐私政策有任何疑问，请通过 <a href="mailto:support@smartmusiclab.com" className="text-primary hover:underline">support@smartmusiclab.com</a> 联系我们。
               </p>
             </div>
           </section>

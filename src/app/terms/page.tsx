@@ -90,7 +90,7 @@ export default function TermsPage() {
               <h2 className="text-xl font-semibold text-base-content mb-2">10. Contact Information</h2>
               <p>
                 If you have any questions about these Terms of Service, please contact us at{' '}
-                <a href="mailto:zyr950608@gmail.com" className="text-primary hover:underline">zyr950608@gmail.com</a>
+                <a href="mailto:support@smartmusiclab.com" className="text-primary hover:underline">support@smartmusiclab.com</a>
               </p>
             </div>
           </section>
@@ -177,7 +177,7 @@ export default function TermsPage() {
               <h2 className="text-xl font-semibold text-base-content mb-2">十、联系方式</h2>
               <p>
                 如您对本服务条款有任何疑问，请通过{' '}
-                <a href="mailto:zyr950608@gmail.com" className="text-primary hover:underline">zyr950608@gmail.com</a> 联系我们
+                <a href="mailto:support@smartmusiclab.com" className="text-primary hover:underline">support@smartmusiclab.com</a> 联系我们
               </p>
             </div>
           </section>
