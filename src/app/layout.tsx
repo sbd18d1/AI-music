@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { getThemeName } from '@/lib/theme';
+import Header from '@/components/Header';
 
 export const metadata: Metadata = {
   title: 'AI Personalized Song Generator',
@@ -26,7 +27,10 @@ export default function RootLayout({
   
   return (
     <html lang="en" data-theme={themeName}>
-      <body className="min-h-screen">{children}</body>
+      <body className="min-h-screen">
+        <Header />
+        {children}
+      </body>
     </html>
   );
 }

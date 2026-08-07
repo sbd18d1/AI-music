@@ -548,7 +548,7 @@ export default function Home() {
           </p>
         </header>
 
-        <div className="bg-base-200/80 border border-base-300 rounded-2xl p-4 shadow-vintage mb-10">
+        <div id="how-it-works" className="bg-base-200/80 border border-base-300 rounded-2xl p-4 shadow-vintage mb-10">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="flex items-start gap-3">
               <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -622,7 +622,7 @@ export default function Home() {
         </div>
 
         {!showResult && (
-          <form className="bg-base-200/80 border border-base-300 p-5 md:p-8 shadow-vintage rounded-2xl">
+          <form id="pricing" className="bg-base-200/80 border border-base-300 p-5 md:p-8 shadow-vintage rounded-2xl">
             <h2 className="font-serif text-xl md:text-2xl font-bold text-base-content text-center mb-6">
               Create Your Song
             </h2>
@@ -901,8 +901,8 @@ export default function Home() {
             <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            <a href="mailto:imallaboutyou@foxmail.com" className="text-base-content/80 hover:text-primary font-medium transition-colors">
-              imallaboutyou@foxmail.com
+            <a href="mailto:support@smartmusiclab.com" className="text-base-content/80 hover:text-primary font-medium transition-colors">
+              support@smartmusiclab.com
             </a>
           </div>
           <div className="mt-4 flex items-center justify-center gap-4 text-sm text-base-content/50 flex-wrap">
@@ -921,7 +921,7 @@ export default function Home() {
             <p className="font-medium">Smart Music Lab is owned and operated by Qingdao Dianliu Information Technology Co., Ltd.</p>
             <p>Company Registration No.: 91370213MAD9GFBR8X</p>
             <p>Business Address: 303-30, Building 1, No. 568 Jiushuidong Road, Licang District, Qingdao City, Shandong Province</p>
-            <p>Contact Email: <a href="mailto:imallaboutyou@foxmail.com" className="hover:text-primary transition-colors">imallaboutyou@foxmail.com</a></p>
+            <p>Contact Email: <a href="mailto:support@smartmusiclab.com" className="hover:text-primary transition-colors">support@smartmusiclab.com</a></p>
             <p className="mt-2">© 2025 Smart Music Lab. All rights reserved.</p>
           </div>
         </footer>

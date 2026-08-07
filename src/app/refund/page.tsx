@@ -44,13 +44,16 @@ export default function RefundPage() {
                 <li>Digital goods, once delivered, cannot be returned or reclaimed</li>
                 <li>You have the opportunity to preview the song (free trial with watermark) before purchasing</li>
               </ul>
+              <p className="text-sm mt-3 font-medium">
+                Due to the nature of digital goods, generated audio files are non-refundable once downloaded. However, full refunds or credit redelivery will be issued if a system generation error occurs.
+              </p>
             </div>
 
             <div>
               <h2 className="text-xl font-semibold text-base-content mb-2">How to Request a Refund</h2>
               <p>To request a refund, please follow these steps:</p>
               <ol className="list-decimal list-inside mt-2 space-y-1">
-                <li>Send an email to <a href="mailto:zyr950608@gmail.com" className="text-primary hover:underline">zyr950608@gmail.com</a> with the subject line &quot;Refund Request - [Your Order ID]&quot;</li>
+                <li>Send an email to <a href="mailto:support@smartmusiclab.com" className="text-primary hover:underline">support@smartmusiclab.com</a> with the subject line &quot;Refund Request - [Your Order ID]&quot;</li>
                 <li>Include your order ID (found in your payment confirmation email)</li>
                 <li>Provide a brief reason for your refund request</li>
                 <li>We will review your request and respond within 3 business days</li>
@@ -79,7 +82,7 @@ export default function RefundPage() {
             <div>
               <h2 className="text-xl font-semibold text-base-content mb-2">Technical Issues</h2>
               <p>
-                If you experience technical issues with your song (e.g., file corruption, playback issues), please contact us immediately at <a href="mailto:zyr950608@gmail.com" className="text-primary hover:underline">zyr950608@gmail.com</a>. We will work with you to resolve the issue or provide a replacement song at no extra cost.
+                If you experience technical issues with your song (e.g., file corruption, playback issues), please contact us immediately at <a href="mailto:support@smartmusiclab.com" className="text-primary hover:underline">support@smartmusiclab.com</a>. We will work with you to resolve the issue or provide a replacement song at no extra cost.
               </p>
             </div>
 
@@ -94,7 +97,7 @@ export default function RefundPage() {
               <h2 className="text-xl font-semibold text-base-content mb-2">Contact Us</h2>
               <p>
                 If you have any questions about this Refund Policy, please contact us at{' '}
-                <a href="mailto:zyr950608@gmail.com" className="text-primary hover:underline">zyr950608@gmail.com</a>
+                <a href="mailto:support@smartmusiclab.com" className="text-primary hover:underline">support@smartmusiclab.com</a>
               </p>
             </div>
           </section>
@@ -135,13 +138,16 @@ export default function RefundPage() {
                 <li>数字商品一旦交付无法归还或收回</li>
                 <li>您在购买前有机会试听带水印的预览版本</li>
               </ul>
+              <p className="text-sm mt-3 font-medium">
+                由于数字商品的特性，生成的音频文件一经下载不可退款。但如果发生系统生成错误，我们将提供全额退款或重新生成。
+              </p>
             </div>
 
             <div>
               <h2 className="text-xl font-semibold text-base-content mb-2">如何申请退款</h2>
               <p>申请退款请按以下步骤操作：</p>
               <ol className="list-decimal list-inside mt-2 space-y-1">
-                <li>发送邮件至 <a href="mailto:zyr950608@gmail.com" className="text-primary hover:underline">zyr950608@gmail.com</a>，主题为&quot;退款申请 - [您的订单号]&quot;</li>
+                <li>发送邮件至 <a href="mailto:support@smartmusiclab.com" className="text-primary hover:underline">support@smartmusiclab.com</a>，主题为&quot;退款申请 - [您的订单号]&quot;</li>
                 <li>在邮件中包含您的订单号（可在付款确认邮件中找到）</li>
                 <li>简要说明退款理由</li>
                 <li>我们将在 3 个工作日内审核您的请求并回复</li>
@@ -170,7 +176,7 @@ export default function RefundPage() {
             <div>
               <h2 className="text-xl font-semibold text-base-content mb-2">技术问题</h2>
               <p>
-                如您在使用歌曲时遇到技术问题（如文件损坏、无法播放），请立即联系 <a href="mailto:zyr950608@gmail.com" className="text-primary hover:underline">zyr950608@gmail.com</a>。我们将协助您解决问题或免费提供替换歌曲。
+                如您在使用歌曲时遇到技术问题（如文件损坏、无法播放），请立即联系 <a href="mailto:support@smartmusiclab.com" className="text-primary hover:underline">support@smartmusiclab.com</a>。我们将协助您解决问题或免费提供替换歌曲。
               </p>
             </div>
 
@@ -184,7 +190,7 @@ export default function RefundPage() {
             <div>
               <h2 className="text-xl font-semibold text-base-content mb-2">联系我们</h2>
               <p>
-                如您对本退款政策有任何疑问，请通过 <a href="mailto:zyr950608@gmail.com" className="text-primary hover:underline">zyr950608@gmail.com</a> 联系我们。
+                如您对本退款政策有任何疑问，请通过 <a href="mailto:support@smartmusiclab.com" className="text-primary hover:underline">support@smartmusiclab.com</a> 联系我们。
               </p>
             </div>
           </section>
