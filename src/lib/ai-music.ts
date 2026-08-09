@@ -532,13 +532,22 @@ export async function pollForResult(taskId: string): Promise<GenerateSongRespons
           if (song.audio_url) {
             log('Song generation complete! Audio URL:', song.audio_url);
             log('Song title:', song.title || 'Unknown');
-            log('Lyrics preview:', song.prompt ? song.prompt.substring(0, 100) + '...' : 'None');
-            
+
+            const songLyrics =
+              song.prompt ||
+              song.lyrics ||
+              song.description ||
+              (song.metadata && (song.metadata.lyrics || song.metadata.prompt)) ||
+              '';
+
+            log('Lyrics length:', songLyrics ? songLyrics.length : 0);
+            log('Lyrics preview:', songLyrics ? songLyrics.substring(0, 100) + '...' : 'EMPTY');
+
             const result: GenerateSongResponse = {
               success: true,
               audioUrl: song.audio_url,
               requestId: taskId,
-              lyrics: song.prompt,
+              lyrics: songLyrics,
               title: song.title,
               coverImageUrl: song.image_url || song.image_large_url,
               duration: song.duration ? String(song.duration) : undefined,
@@ -605,7 +614,7 @@ export async function checkResultOnce(taskId: string): Promise<GenerateSongRespo
 
     const responseBodyText = await response.text();
     log('Single check response status:', response.status);
-    log('Single check response body:', responseBodyText.substring(0, 500));
+    log('Single check response body (first 2000 chars):', responseBodyText.substring(0, 2000));
 
     let data: any;
     try {
@@ -629,11 +638,28 @@ export async function checkResultOnce(taskId: string): Promise<GenerateSongRespo
       if (completedSong) {
         log('Song generation complete! Audio URL:', completedSong.audio_url);
 
+        // 歌词可能出现在多个字段中（取决于 API 模式和版本）
+        // 全自动模式(gpt_description_prompt)下 prompt 可能为空，歌词可能在其他字段
+        const songLyrics =
+          completedSong.prompt ||
+          completedSong.lyrics ||
+          completedSong.description ||
+          (completedSong.metadata && (completedSong.metadata.lyrics || completedSong.metadata.prompt)) ||
+          '';
+
+        log('Song object keys:', Object.keys(completedSong));
+        log('Lyrics source field:', completedSong.prompt ? 'prompt' :
+          completedSong.lyrics ? 'lyrics' :
+          completedSong.description ? 'description' :
+          (completedSong.metadata && completedSong.metadata.lyrics) ? 'metadata.lyrics' : 'none');
+        log('Lyrics length:', songLyrics ? songLyrics.length : 0);
+        log('Lyrics preview:', songLyrics ? songLyrics.substring(0, 100) + '...' : 'EMPTY');
+
         const result: GenerateSongResponse = {
           success: true,
           audioUrl: completedSong.audio_url,
           requestId: taskId,
-          lyrics: completedSong.prompt,
+          lyrics: songLyrics,
           title: completedSong.title,
           coverImageUrl: completedSong.image_url || completedSong.image_large_url,
           duration: completedSong.duration ? String(completedSong.duration) : undefined,
