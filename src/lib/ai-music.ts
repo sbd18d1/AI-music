@@ -547,53 +547,33 @@ export async function pollForResult(taskId: string): Promise<GenerateSongRespons
           };
         }
 
-        // 302.ai returns multiple songs: one with status "complete" (final CDN URL)
-        // and one with status "streaming" (audiopipe.suno.ai live stream URL).
-        // Prefer "complete" songs to avoid playback delays with streaming URLs.
-        const completeSong = songs.find((s: any) =>
-          s.status === 'complete' && s.audio_url && !s.audio_url.includes('audiopipe')
-        );
-        const completeSongAny = songs.find((s: any) => s.status === 'complete' && s.audio_url);
-        const cdnSong = songs.find((s: any) => s.audio_url && !s.audio_url.includes('audiopipe'));
-        const anySong = songs.find((s: any) => s.audio_url);
-
-        const song = completeSong || completeSongAny || cdnSong || anySong;
+        // Select first song with audio_url (prefer non-audiopipe CDN URLs)
+        const song = songs.find((s: any) => s.audio_url && !s.audio_url.includes('audiopipe'))
+          || songs.find((s: any) => s.audio_url);
 
         if (song && song.audio_url) {
-          // If only streaming URL available, wait for complete status
-          const isStreamingOnly = !completeSong && !completeSongAny && !cdnSong && anySong &&
-            anySong.status === 'streaming' && anySong.audio_url.includes('audiopipe');
-
-          if (isStreamingOnly) {
-            log('Only streaming URL available (audiopipe.suno.ai), waiting for complete status...');
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            continue;
-          }
-
           log('Song generation complete! Audio URL:', song.audio_url);
           log('Song status:', song.status);
           log('Song title:', song.title || 'Unknown');
 
-          // 302.ai puts lyrics in metadata.prompt (confirmed from API docs)
+          // Lyrics: search ALL songs if selected song doesn't have them
           const songLyrics =
             (song.metadata && (song.metadata.prompt || song.metadata.lyrics)) ||
             song.prompt ||
             song.lyrics ||
             song.description ||
+            songs.find((s: any) => s.metadata && s.metadata.prompt)?.metadata?.prompt ||
+            songs.find((s: any) => s.metadata && s.metadata.lyrics)?.metadata?.lyrics ||
             '';
 
-          log('Lyrics source field:',
-            (song.metadata && song.metadata.prompt) ? 'metadata.prompt' :
-            (song.metadata && song.metadata.lyrics) ? 'metadata.lyrics' :
-            song.prompt ? 'prompt' :
-            song.lyrics ? 'lyrics' :
-            song.description ? 'description' : 'none');
           log('Lyrics length:', songLyrics ? songLyrics.length : 0);
           log('Lyrics preview:', songLyrics ? songLyrics.substring(0, 100) + '...' : 'EMPTY');
 
-          // Duration is in metadata.duration (number)
+          // Duration: search ALL songs for metadata.duration
           const songDuration =
-            (song.metadata && song.metadata.duration) || song.duration;
+            (song.metadata && song.metadata.duration) ||
+            song.duration ||
+            songs.find((s: any) => s.metadata && s.metadata.duration)?.metadata?.duration;
 
           const result: GenerateSongResponse = {
             success: true,
@@ -695,55 +675,25 @@ export async function checkResultOnce(taskId: string): Promise<GenerateSongRespo
         };
       }
 
-      // 302.ai returns multiple songs: one with status "complete" (final CDN URL)
-      // and one with status "streaming" (audiopipe.suno.ai live stream URL).
-      // The "streaming" URL causes playback delays because it's not a finished file.
-      // Strategy: prefer "complete" songs with CDN URLs over "streaming" songs.
-
-      // 1. Best: status "complete" with a CDN URL (cdn1.suno.ai or similar, NOT audiopipe)
-      const completeSong = songs.find((s: any) =>
-        s.status === 'complete' && s.audio_url && !s.audio_url.includes('audiopipe')
-      );
-
-      // 2. Good: status "complete" with any audio_url
-      const completeSongAny = songs.find((s: any) =>
-        s.status === 'complete' && s.audio_url
-      );
-
-      // 3. Fallback: any song with a non-audiopipe audio_url
-      const cdnSong = songs.find((s: any) =>
-        s.audio_url && !s.audio_url.includes('audiopipe')
-      );
-
-      // 4. Last resort: any song with audio_url (even streaming)
-      const anySong = songs.find((s: any) => s.audio_url);
-
-      const completedSong = completeSong || completeSongAny || cdnSong || anySong;
+      // Select the first song with audio_url.
+      // Prefer non-audiopipe URLs (CDN URLs) but fall back to any URL.
+      const completedSong = songs.find((s: any) => s.audio_url && !s.audio_url.includes('audiopipe'))
+        || songs.find((s: any) => s.audio_url);
 
       if (completedSong) {
-        // If we only have a "streaming" song, keep polling for "complete" status
-        // (but only if we haven't been polling too long — the frontend controls timeout)
-        const isStreamingOnly = !completeSong && !completeSongAny && cdnSong === undefined && anySong &&
-          anySong.status === 'streaming' && anySong.audio_url.includes('audiopipe');
-
-        if (isStreamingOnly) {
-          log('Only streaming URL available (audiopipe.suno.ai), waiting for complete status...');
-          log('Streaming audio_url:', anySong.audio_url);
-          // Return not-ready so frontend keeps polling
-          return { success: false, requestId: taskId };
-        }
-
         log('Song generation complete! Audio URL:', completedSong.audio_url);
         log('Song status:', completedSong.status);
         log('Song object keys:', Object.keys(completedSong));
 
-        // 302.ai puts lyrics in metadata.prompt (confirmed from API docs)
-        // Fall back to other fields for compatibility with different API versions
+        // Lyrics: search ALL songs (the selected song might not have them,
+        // but another song in the array might). 302.ai puts lyrics in metadata.prompt.
         const songLyrics =
           (completedSong.metadata && (completedSong.metadata.prompt || completedSong.metadata.lyrics)) ||
           completedSong.prompt ||
           completedSong.lyrics ||
           completedSong.description ||
+          songs.find((s: any) => s.metadata && s.metadata.prompt)?.metadata?.prompt ||
+          songs.find((s: any) => s.metadata && s.metadata.lyrics)?.metadata?.lyrics ||
           '';
 
         log('Lyrics source field:',
@@ -751,14 +701,18 @@ export async function checkResultOnce(taskId: string): Promise<GenerateSongRespo
           (completedSong.metadata && completedSong.metadata.lyrics) ? 'metadata.lyrics' :
           completedSong.prompt ? 'prompt' :
           completedSong.lyrics ? 'lyrics' :
-          completedSong.description ? 'description' : 'none');
+          completedSong.description ? 'description' :
+          'other song');
         log('Lyrics length:', songLyrics ? songLyrics.length : 0);
         log('Lyrics preview:', songLyrics ? songLyrics.substring(0, 100) + '...' : 'EMPTY');
 
-        // Duration is in metadata.duration (number), not top-level duration
+        // Duration: search ALL songs for metadata.duration
         const songDuration =
           (completedSong.metadata && completedSong.metadata.duration) ||
-          completedSong.duration;
+          completedSong.duration ||
+          songs.find((s: any) => s.metadata && s.metadata.duration)?.metadata?.duration;
+
+        log('Duration:', songDuration);
 
         const result: GenerateSongResponse = {
           success: true,
