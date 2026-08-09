@@ -66,6 +66,7 @@ export default function SongPageClient({ songData }: { songData: SongData }) {
                 src={songData.audioUrl} 
                 controlsList="nodownload"
                 isPreview={false}
+                duration={songData.duration}
               />
             ) : (
               <div className="text-center py-8">

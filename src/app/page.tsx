@@ -765,6 +765,7 @@ export default function Home() {
                       src={audioUrl} 
                       controlsList={deliveryStrategy.shouldHideDownloadButton() ? 'nodownload' : ''}
                       isPreview={deliveryStrategy.shouldHideDownloadButton()}
+                      duration={songDuration}
                     />
                   </div>
 
