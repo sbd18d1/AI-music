@@ -191,19 +191,13 @@ export default function Home() {
     if (deliveryStrategy.hasUnpaidSong() || deliveryStrategy.getSavedSongData()) {
       const savedSong = deliveryStrategy.getSavedSongData();
       if (savedSong) {
-        // Check if cached audioUrl is a proxy URL (old format), clear it
-        if (savedSong.audioUrl.includes('/api/stream-audio/')) {
-          console.log('[init] Clearing cached proxy URL, need fresh data');
-          deliveryStrategy.clearSongData();
-        } else {
-          setAudioUrl(savedSong.audioUrl);
-          setIsPreview(savedSong.isPreview);
-          setSongTitle(savedSong.title);
-          setSongLyrics(savedSong.lyrics);
-          setCoverImageUrl(savedSong.coverImageUrl);
-          setSongDuration(savedSong.duration);
-          setShowResult(true);
-        }
+        setAudioUrl(savedSong.audioUrl);
+        setIsPreview(savedSong.isPreview);
+        setSongTitle(savedSong.title);
+        setSongLyrics(savedSong.lyrics);
+        setCoverImageUrl(savedSong.coverImageUrl);
+        setSongDuration(savedSong.duration);
+        setShowResult(true);
       }
       // Restore trial orderId from localStorage so it can be passed to payment flow
       const savedOrderId = localStorage.getItem('trial_order_id');
