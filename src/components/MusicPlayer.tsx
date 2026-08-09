@@ -45,7 +45,10 @@ export default function MusicPlayer({ audioUrl, title, lyrics, coverImageUrl, du
     };
 
     const handleLoadedMetadata = () => {
-      setTotalDuration(audio.duration);
+      // Reject Infinity (Chrome returns it for streaming audio without Content-Length)
+      if (isFinite(audio.duration) && audio.duration > 0) {
+        setTotalDuration(audio.duration);
+      }
     };
 
     const handleEnded = () => {
@@ -123,7 +126,7 @@ export default function MusicPlayer({ audioUrl, title, lyrics, coverImageUrl, du
   };
 
   const formatTime = (seconds: number) => {
-    if (isNaN(seconds)) return '0:00';
+    if (!isFinite(seconds) || isNaN(seconds)) return '--:--';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;

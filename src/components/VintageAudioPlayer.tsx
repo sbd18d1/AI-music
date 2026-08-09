@@ -37,7 +37,9 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
   const updateDuration = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (!isNaN(audio.duration) && audio.duration > 0) {
+    // Use isFinite to reject Infinity (Chrome returns Infinity for
+    // streaming audio without Content-Length)
+    if (isFinite(audio.duration) && audio.duration > 0) {
       setTotalDuration(audio.duration);
     }
   }, []);
@@ -161,7 +163,23 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
     if (!audio) return;
 
     const handleTimeUpdate = () => updateProgress();
-    const handleLoadedMetadata = () => updateDuration();
+    const handleLoadedMetadata = () => {
+      // Chrome returns Infinity for streaming audio without Content-Length.
+      // Workaround: seek to a huge time to force the browser to request bytes
+      // near the end of the file. The server's Content-Range response lets the
+      // browser calculate the real duration, which fires 'durationchange'.
+      if (audio.duration === Infinity) {
+        console.log('[AudioPlayer] duration is Infinity, triggering seek-to-end workaround');
+        audio.currentTime = Number.MAX_SAFE_INTEGER;
+        // Seek back to 0 after the browser discovers the real duration
+        const seekBack = () => {
+          audio.currentTime = 0;
+          audio.removeEventListener('durationchange', seekBack);
+        };
+        audio.addEventListener('durationchange', seekBack);
+      }
+      updateDuration();
+    };
     const handleDurationChange = () => updateDuration();
     const handlePlaying = () => {
       setIsPlaying(true);
@@ -188,7 +206,7 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
     audio.addEventListener('pause', handlePause);
     audio.addEventListener('ended', handleEnded);
 
-    if (!isNaN(audio.duration) && audio.duration > 0) {
+    if (isFinite(audio.duration) && audio.duration > 0) {
       setTotalDuration(audio.duration);
     }
 
@@ -292,14 +310,14 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
   };
 
   const formatTime = (seconds: number) => {
-    if (isNaN(seconds) || seconds < 0) return '0:00';
+    if (!isFinite(seconds) || isNaN(seconds) || seconds < 0) return '--:--';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const progressPercent = totalDuration && totalDuration > 0 
-    ? Math.min((currentTime / totalDuration) * 100, 100) 
+  const progressPercent = totalDuration && isFinite(totalDuration) && totalDuration > 0
+    ? Math.min((currentTime / totalDuration) * 100, 100)
     : 0;
 
   return (
