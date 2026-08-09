@@ -173,20 +173,6 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
 
     const handleTimeUpdate = () => updateProgress();
     const handleLoadedMetadata = () => {
-      // Chrome returns Infinity for streaming audio without Content-Length.
-      // Workaround: seek to a huge time to force the browser to request bytes
-      // near the end of the file. The server's Content-Range response lets the
-      // browser calculate the real duration, which fires 'durationchange'.
-      if (audio.duration === Infinity) {
-        console.log('[AudioPlayer] duration is Infinity, triggering seek-to-end workaround');
-        audio.currentTime = Number.MAX_SAFE_INTEGER;
-        // Seek back to 0 after the browser discovers the real duration
-        const seekBack = () => {
-          audio.currentTime = 0;
-          audio.removeEventListener('durationchange', seekBack);
-        };
-        audio.addEventListener('durationchange', seekBack);
-      }
       updateDuration();
     };
     const handleDurationChange = () => updateDuration();
