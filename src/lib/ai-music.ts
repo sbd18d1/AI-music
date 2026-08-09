@@ -525,50 +525,91 @@ export async function pollForResult(taskId: string): Promise<GenerateSongRespons
       // 检查任务状态
       if (data.data && data.data.data && Array.isArray(data.data.data)) {
         const songs = data.data.data;
-        
-        if (songs.length > 0) {
-          const song = songs[0];
-          
-          if (song.audio_url) {
-            log('Song generation complete! Audio URL:', song.audio_url);
-            log('Song title:', song.title || 'Unknown');
 
-            const songLyrics =
-              song.prompt ||
-              song.lyrics ||
-              song.description ||
-              (song.metadata && (song.metadata.lyrics || song.metadata.prompt)) ||
-              '';
+        // Log all songs' status for debugging
+        log('Songs array length:', songs.length);
+        songs.forEach((s: any, idx: number) => {
+          log(`  Song[${idx}]: status=${s.status}, title=${s.title}, ` +
+            `audio_url=${s.audio_url ? s.audio_url.substring(0, 60) + '...' : 'none'}, ` +
+            `metadata.prompt length=${s.metadata?.prompt?.length || 0}, ` +
+            `metadata.duration=${s.metadata?.duration}`);
+        });
 
-            log('Lyrics length:', songLyrics ? songLyrics.length : 0);
-            log('Lyrics preview:', songLyrics ? songLyrics.substring(0, 100) + '...' : 'EMPTY');
+        // Check for failure first
+        const failedSong = songs.find((s: any) => s.status === 'failed' || s.error);
+        if (failedSong) {
+          const errorMsg = failedSong.error || failedSong.msg || 'Generation failed';
+          log('Task failed:', errorMsg);
+          return {
+            success: false,
+            error: errorMsg,
+            requestId: taskId,
+          };
+        }
 
-            const result: GenerateSongResponse = {
-              success: true,
-              audioUrl: song.audio_url,
-              requestId: taskId,
-              lyrics: songLyrics,
-              title: song.title,
-              coverImageUrl: song.image_url || song.image_large_url,
-              duration: song.duration ? String(song.duration) : undefined,
-            };
+        // 302.ai returns multiple songs: one with status "complete" (final CDN URL)
+        // and one with status "streaming" (audiopipe.suno.ai live stream URL).
+        // Prefer "complete" songs to avoid playback delays with streaming URLs.
+        const completeSong = songs.find((s: any) =>
+          s.status === 'complete' && s.audio_url && !s.audio_url.includes('audiopipe')
+        );
+        const completeSongAny = songs.find((s: any) => s.status === 'complete' && s.audio_url);
+        const cdnSong = songs.find((s: any) => s.audio_url && !s.audio_url.includes('audiopipe'));
+        const anySong = songs.find((s: any) => s.audio_url);
 
-            saveTestData(result).catch(err => {
-              log('Failed to save test data:', err);
-            });
+        const song = completeSong || completeSongAny || cdnSong || anySong;
 
-            return result;
+        if (song && song.audio_url) {
+          // If only streaming URL available, wait for complete status
+          const isStreamingOnly = !completeSong && !completeSongAny && !cdnSong && anySong &&
+            anySong.status === 'streaming' && anySong.audio_url.includes('audiopipe');
+
+          if (isStreamingOnly) {
+            log('Only streaming URL available (audiopipe.suno.ai), waiting for complete status...');
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            continue;
           }
-          
-          if (song.status === 'failed' || song.error) {
-            const errorMsg = song.error || song.msg || 'Generation failed';
-            log('Task failed:', errorMsg);
-            return {
-              success: false,
-              error: errorMsg,
-              requestId: taskId,
-            };
-          }
+
+          log('Song generation complete! Audio URL:', song.audio_url);
+          log('Song status:', song.status);
+          log('Song title:', song.title || 'Unknown');
+
+          // 302.ai puts lyrics in metadata.prompt (confirmed from API docs)
+          const songLyrics =
+            (song.metadata && (song.metadata.prompt || song.metadata.lyrics)) ||
+            song.prompt ||
+            song.lyrics ||
+            song.description ||
+            '';
+
+          log('Lyrics source field:',
+            (song.metadata && song.metadata.prompt) ? 'metadata.prompt' :
+            (song.metadata && song.metadata.lyrics) ? 'metadata.lyrics' :
+            song.prompt ? 'prompt' :
+            song.lyrics ? 'lyrics' :
+            song.description ? 'description' : 'none');
+          log('Lyrics length:', songLyrics ? songLyrics.length : 0);
+          log('Lyrics preview:', songLyrics ? songLyrics.substring(0, 100) + '...' : 'EMPTY');
+
+          // Duration is in metadata.duration (number)
+          const songDuration =
+            (song.metadata && song.metadata.duration) || song.duration;
+
+          const result: GenerateSongResponse = {
+            success: true,
+            audioUrl: song.audio_url,
+            requestId: taskId,
+            lyrics: songLyrics,
+            title: song.title,
+            coverImageUrl: song.image_url || song.image_large_url,
+            duration: songDuration ? String(songDuration) : undefined,
+          };
+
+          saveTestData(result).catch(err => {
+            log('Failed to save test data:', err);
+          });
+
+          return result;
         }
       }
 
@@ -633,46 +674,16 @@ export async function checkResultOnce(taskId: string): Promise<GenerateSongRespo
     if (data.data && data.data.data && Array.isArray(data.data.data)) {
       const songs = data.data.data;
 
-      // Search all songs for one with audio_url (not just songs[0])
-      const completedSong = songs.find((s: any) => s.audio_url);
-      if (completedSong) {
-        log('Song generation complete! Audio URL:', completedSong.audio_url);
+      // Log all songs' status and audio_url for debugging
+      log('Songs array length:', songs.length);
+      songs.forEach((s: any, idx: number) => {
+        log(`  Song[${idx}]: status=${s.status}, title=${s.title}, ` +
+          `audio_url=${s.audio_url ? s.audio_url.substring(0, 60) + '...' : 'none'}, ` +
+          `metadata.prompt length=${s.metadata?.prompt?.length || 0}, ` +
+          `metadata.duration=${s.metadata?.duration}`);
+      });
 
-        // 歌词可能出现在多个字段中（取决于 API 模式和版本）
-        // 全自动模式(gpt_description_prompt)下 prompt 可能为空，歌词可能在其他字段
-        const songLyrics =
-          completedSong.prompt ||
-          completedSong.lyrics ||
-          completedSong.description ||
-          (completedSong.metadata && (completedSong.metadata.lyrics || completedSong.metadata.prompt)) ||
-          '';
-
-        log('Song object keys:', Object.keys(completedSong));
-        log('Lyrics source field:', completedSong.prompt ? 'prompt' :
-          completedSong.lyrics ? 'lyrics' :
-          completedSong.description ? 'description' :
-          (completedSong.metadata && completedSong.metadata.lyrics) ? 'metadata.lyrics' : 'none');
-        log('Lyrics length:', songLyrics ? songLyrics.length : 0);
-        log('Lyrics preview:', songLyrics ? songLyrics.substring(0, 100) + '...' : 'EMPTY');
-
-        const result: GenerateSongResponse = {
-          success: true,
-          audioUrl: completedSong.audio_url,
-          requestId: taskId,
-          lyrics: songLyrics,
-          title: completedSong.title,
-          coverImageUrl: completedSong.image_url || completedSong.image_large_url,
-          duration: completedSong.duration ? String(completedSong.duration) : undefined,
-        };
-
-        saveTestData(result).catch(err => {
-          log('Failed to save test data:', err);
-        });
-
-        return result;
-      }
-
-      // Check for failure
+      // Check for failure first
       const failedSong = songs.find((s: any) => s.status === 'failed' || s.error);
       if (failedSong) {
         const errorMsg = failedSong.error || failedSong.msg || 'Generation failed';
@@ -682,6 +693,88 @@ export async function checkResultOnce(taskId: string): Promise<GenerateSongRespo
           error: errorMsg,
           requestId: taskId,
         };
+      }
+
+      // 302.ai returns multiple songs: one with status "complete" (final CDN URL)
+      // and one with status "streaming" (audiopipe.suno.ai live stream URL).
+      // The "streaming" URL causes playback delays because it's not a finished file.
+      // Strategy: prefer "complete" songs with CDN URLs over "streaming" songs.
+
+      // 1. Best: status "complete" with a CDN URL (cdn1.suno.ai or similar, NOT audiopipe)
+      const completeSong = songs.find((s: any) =>
+        s.status === 'complete' && s.audio_url && !s.audio_url.includes('audiopipe')
+      );
+
+      // 2. Good: status "complete" with any audio_url
+      const completeSongAny = songs.find((s: any) =>
+        s.status === 'complete' && s.audio_url
+      );
+
+      // 3. Fallback: any song with a non-audiopipe audio_url
+      const cdnSong = songs.find((s: any) =>
+        s.audio_url && !s.audio_url.includes('audiopipe')
+      );
+
+      // 4. Last resort: any song with audio_url (even streaming)
+      const anySong = songs.find((s: any) => s.audio_url);
+
+      const completedSong = completeSong || completeSongAny || cdnSong || anySong;
+
+      if (completedSong) {
+        // If we only have a "streaming" song, keep polling for "complete" status
+        // (but only if we haven't been polling too long — the frontend controls timeout)
+        const isStreamingOnly = !completeSong && !completeSongAny && cdnSong === undefined && anySong &&
+          anySong.status === 'streaming' && anySong.audio_url.includes('audiopipe');
+
+        if (isStreamingOnly) {
+          log('Only streaming URL available (audiopipe.suno.ai), waiting for complete status...');
+          log('Streaming audio_url:', anySong.audio_url);
+          // Return not-ready so frontend keeps polling
+          return { success: false, requestId: taskId };
+        }
+
+        log('Song generation complete! Audio URL:', completedSong.audio_url);
+        log('Song status:', completedSong.status);
+        log('Song object keys:', Object.keys(completedSong));
+
+        // 302.ai puts lyrics in metadata.prompt (confirmed from API docs)
+        // Fall back to other fields for compatibility with different API versions
+        const songLyrics =
+          (completedSong.metadata && (completedSong.metadata.prompt || completedSong.metadata.lyrics)) ||
+          completedSong.prompt ||
+          completedSong.lyrics ||
+          completedSong.description ||
+          '';
+
+        log('Lyrics source field:',
+          (completedSong.metadata && completedSong.metadata.prompt) ? 'metadata.prompt' :
+          (completedSong.metadata && completedSong.metadata.lyrics) ? 'metadata.lyrics' :
+          completedSong.prompt ? 'prompt' :
+          completedSong.lyrics ? 'lyrics' :
+          completedSong.description ? 'description' : 'none');
+        log('Lyrics length:', songLyrics ? songLyrics.length : 0);
+        log('Lyrics preview:', songLyrics ? songLyrics.substring(0, 100) + '...' : 'EMPTY');
+
+        // Duration is in metadata.duration (number), not top-level duration
+        const songDuration =
+          (completedSong.metadata && completedSong.metadata.duration) ||
+          completedSong.duration;
+
+        const result: GenerateSongResponse = {
+          success: true,
+          audioUrl: completedSong.audio_url,
+          requestId: taskId,
+          lyrics: songLyrics,
+          title: completedSong.title,
+          coverImageUrl: completedSong.image_url || completedSong.image_large_url,
+          duration: songDuration ? String(songDuration) : undefined,
+        };
+
+        saveTestData(result).catch(err => {
+          log('Failed to save test data:', err);
+        });
+
+        return result;
       }
     }
 
