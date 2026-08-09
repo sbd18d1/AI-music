@@ -7,13 +7,20 @@ interface VintageAudioPlayerProps {
   src: string;
   controlsList?: string;
   isPreview?: boolean;
+  /** Pre-known duration in seconds (from API), used when browser can't determine it from stream */
+  duration?: number | string;
 }
 
 const WATERMARK_INTERVAL = 12000;
 const WATERMARK_VOLUME_REDUCTION = 0.15;
 const WATERMARK_PATH = '/audio/watermark.mp3';
 
-export default function VintageAudioPlayer({ src, controlsList, isPreview = false }: VintageAudioPlayerProps) {
+export default function VintageAudioPlayer({ src, controlsList, isPreview = false, duration }: VintageAudioPlayerProps) {
+  // Parse the prop duration to a finite number (seconds), or 0 if invalid
+  const propDuration = (() => {
+    const n = typeof duration === 'string' ? parseFloat(duration) : duration;
+    return typeof n === 'number' && isFinite(n) && n > 0 ? n : 0;
+  })();
   const audioRef = useRef<HTMLAudioElement>(null);
   const watermarkAudioRef = useRef<HTMLAudioElement>(null);
   const watermarkTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -37,12 +44,14 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
   const updateDuration = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    // Use isFinite to reject Infinity (Chrome returns Infinity for
-    // streaming audio without Content-Length)
     if (isFinite(audio.duration) && audio.duration > 0) {
       setTotalDuration(audio.duration);
+    } else if (propDuration > 0) {
+      // Browser returned Infinity (streaming without Content-Length),
+      // use the duration from API response
+      setTotalDuration(propDuration);
     }
-  }, []);
+  }, [propDuration]);
 
   // Unlock watermark audio on mobile (must be triggered by user interaction)
   const unlockWatermarkAudio = useCallback(() => {
@@ -208,6 +217,8 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
 
     if (isFinite(audio.duration) && audio.duration > 0) {
       setTotalDuration(audio.duration);
+    } else if (propDuration > 0) {
+      setTotalDuration(propDuration);
     }
 
     return () => {
@@ -219,7 +230,7 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
       audio.removeEventListener('ended', handleEnded);
       stopWatermarkTimer();
     };
-  }, [updateProgress, updateDuration, isPreview, startWatermarkTimer, stopWatermarkTimer, unlockWatermarkAudio]);
+  }, [updateProgress, updateDuration, isPreview, propDuration, startWatermarkTimer, stopWatermarkTimer, unlockWatermarkAudio]);
 
   useEffect(() => {
     const watermarkAudio = watermarkAudioRef.current;
@@ -254,6 +265,13 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
     audio.src = src;
     audio.load();
   }, [src]);
+
+  // Initialize totalDuration from prop immediately (before audio metadata loads)
+  useEffect(() => {
+    if (propDuration > 0) {
+      setTotalDuration(propDuration);
+    }
+  }, [propDuration]);
 
   useEffect(() => {
     return () => {
