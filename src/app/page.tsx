@@ -196,7 +196,10 @@ export default function Home() {
         setSongTitle(savedSong.title);
         setSongLyrics(savedSong.lyrics);
         setCoverImageUrl(savedSong.coverImageUrl);
-        setSongDuration(savedSong.duration);
+        // Duration safety: fallback to 180s so player never shows 0:00
+        const savedDur = savedSong.duration;
+        const savedDurNum = savedDur ? parseFloat(String(savedDur)) : NaN;
+        setSongDuration(isFinite(savedDurNum) && savedDurNum > 0 ? String(savedDurNum) : '180');
         setShowResult(true);
       }
       // Restore trial orderId from localStorage so it can be passed to payment flow
