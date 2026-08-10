@@ -173,7 +173,19 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
     const audio = audioRef.current;
     if (!audio) return;
 
-    const handleTimeUpdate = () => updateProgress();
+    const handleTimeUpdate = () => {
+      updateProgress();
+      // Also ensure totalDuration is set (covers case where loadedmetadata
+      // fired before propDuration was available, leaving totalDuration = 0).
+      // Uses functional setState to avoid stale closure on totalDuration.
+      const audio = audioRef.current;
+      if (!audio) return;
+      if (isFinite(audio.duration) && audio.duration > 0) {
+        setTotalDuration(audio.duration);
+      } else if (propDuration > 0) {
+        setTotalDuration((prev) => (prev === 0 ? propDuration : prev));
+      }
+    };
     const handleLoadedMetadata = () => {
       updateDuration();
     };
@@ -322,8 +334,13 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const progressPercent = totalDuration && isFinite(totalDuration) && totalDuration > 0
-    ? Math.min((currentTime / totalDuration) * 100, 100)
+  // Use totalDuration if valid, otherwise fall back to propDuration so the
+  // progress bar overlay never gets stuck at 0% while playing.
+  const effectiveDuration = (totalDuration && isFinite(totalDuration) && totalDuration > 0)
+    ? totalDuration
+    : (propDuration > 0 ? propDuration : 0);
+  const progressPercent = effectiveDuration > 0
+    ? Math.min((currentTime / effectiveDuration) * 100, 100)
     : 0;
 
   return (
@@ -375,7 +392,7 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
           <input
             type="range"
             min="0"
-            max={totalDuration || 0}
+            max={effectiveDuration || 0}
             step="0.1"
             value={currentTime}
             onChange={handleSeek}
