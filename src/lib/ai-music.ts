@@ -558,25 +558,40 @@ export async function pollForResult(taskId: string): Promise<GenerateSongRespons
           log('Song status:', song.status);
           log('Song title:', song.title || 'Unknown');
 
-          // Lyrics: search ALL songs if selected song doesn't have them
-          const songLyrics =
-            (song.metadata && (song.metadata.prompt || song.metadata.lyrics)) ||
-            song.prompt ||
-            song.lyrics ||
-            song.description ||
-            songs.find((s: any) => s.metadata && s.metadata.prompt)?.metadata?.prompt ||
-            songs.find((s: any) => s.metadata && s.metadata.lyrics)?.metadata?.lyrics ||
-            '';
+          // Collect all metadata sources (song-level + track-level)
+          const allMeta: any[] = [];
+          if (song.metadata) allMeta.push(song.metadata);
+          if (Array.isArray(song.data)) {
+            for (const track of song.data) {
+              if (track.metadata) allMeta.push(track.metadata);
+            }
+          }
+
+          // Lyrics: gpt_description_prompt first, then prompt, then lyrics
+          let songLyrics = '';
+          for (const meta of allMeta) {
+            if (meta.gpt_description_prompt && meta.gpt_description_prompt.length > songLyrics.length)
+              songLyrics = meta.gpt_description_prompt;
+            if (meta.prompt && meta.prompt.length > songLyrics.length)
+              songLyrics = meta.prompt;
+            if (meta.lyrics && meta.lyrics.length > songLyrics.length)
+              songLyrics = meta.lyrics;
+          }
+          if (!songLyrics)
+            songLyrics = song.prompt || song.lyrics || song.description || '';
 
           log('Lyrics length:', songLyrics ? songLyrics.length : 0);
           log('Lyrics preview:', songLyrics ? songLyrics.substring(0, 100) + '...' : 'EMPTY');
 
-          // Duration: search ALL songs for metadata.duration.
-          // Fallback to 180s so UI never shows 0:00.
-          const rawDuration =
-            (song.metadata && song.metadata.duration) ??
-            song.duration ??
-            songs.find((s: any) => s.metadata && s.metadata.duration)?.metadata?.duration;
+          // Duration: metadata.duration from any source
+          let rawDuration: number | undefined;
+          for (const meta of allMeta) {
+            if (typeof meta.duration === 'number' && isFinite(meta.duration) && meta.duration > 0) {
+              rawDuration = meta.duration;
+              break;
+            }
+          }
+          if (rawDuration === undefined) rawDuration = song.duration;
           const songDuration = (typeof rawDuration === 'number' && isFinite(rawDuration) && rawDuration > 0)
             ? rawDuration
             : 180;
@@ -647,7 +662,12 @@ export async function checkResultOnce(taskId: string): Promise<GenerateSongRespo
     const t3 = Date.now();
     log(`Response body read took ${t3 - t2}ms, length: ${responseBodyText.length}`);
     log('Single check response status:', response.status);
-    log('Single check response body (first 2000 chars):', responseBodyText.substring(0, 2000));
+    // Only log body preview when song is complete (has audio_url), to avoid log spam
+    if (responseBodyText.length < 5000) {
+      log('Single check response body:', responseBodyText.substring(0, 500));
+    } else {
+      log('Single check response body (truncated):', responseBodyText.substring(0, 500) + '...');
+    }
 
     let data: any;
     try {
@@ -669,10 +689,15 @@ export async function checkResultOnce(taskId: string): Promise<GenerateSongRespo
       // Log all songs' status and audio_url for debugging
       log('Songs array length:', songs.length);
       songs.forEach((s: any, idx: number) => {
+        const meta = s.metadata || {};
+        const innerMeta = Array.isArray(s.data) && s.data[0]?.metadata ? s.data[0].metadata : {};
         log(`  Song[${idx}]: status=${s.status}, title=${s.title}, ` +
           `audio_url=${s.audio_url ? s.audio_url.substring(0, 60) + '...' : 'none'}, ` +
-          `metadata.prompt length=${s.metadata?.prompt?.length || 0}, ` +
-          `metadata.duration=${s.metadata?.duration}`);
+          `meta.duration=${meta.duration}, ` +
+          `meta.gpt_description_prompt length=${meta.gpt_description_prompt?.length || 0}, ` +
+          `meta.prompt length=${meta.prompt?.length || 0}, ` +
+          `inner.meta.duration=${innerMeta.duration}, ` +
+          `inner.meta.gpt_description_prompt length=${innerMeta.gpt_description_prompt?.length || 0}`);
       });
 
       // Check for failure first
@@ -697,33 +722,59 @@ export async function checkResultOnce(taskId: string): Promise<GenerateSongRespo
         log('Song status:', completedSong.status);
         log('Song object keys:', Object.keys(completedSong));
 
-        // Lyrics: search ALL songs (the selected song might not have them,
-        // but another song in the array might). 302.ai puts lyrics in metadata.prompt.
-        const songLyrics =
-          (completedSong.metadata && (completedSong.metadata.prompt || completedSong.metadata.lyrics)) ||
-          completedSong.prompt ||
-          completedSong.lyrics ||
-          completedSong.description ||
-          songs.find((s: any) => s.metadata && s.metadata.prompt)?.metadata?.prompt ||
-          songs.find((s: any) => s.metadata && s.metadata.lyrics)?.metadata?.lyrics ||
-          '';
+        // 302.ai response structure (confirmed from logs):
+        // - Song level: metadata = { duration, gpt_description_prompt, prompt, ... }
+        // - Track level (s.data[0]): metadata = { duration, gpt_description_prompt, ... }
+        // Lyrics are in gpt_description_prompt (NOT prompt). Duration is in metadata.duration.
+        // We search both song-level and track-level metadata.
 
-        log('Lyrics source field:',
-          (completedSong.metadata && completedSong.metadata.prompt) ? 'metadata.prompt' :
-          (completedSong.metadata && completedSong.metadata.lyrics) ? 'metadata.lyrics' :
-          completedSong.prompt ? 'prompt' :
-          completedSong.lyrics ? 'lyrics' :
-          completedSong.description ? 'description' :
-          'other song');
-        log('Lyrics length:', songLyrics ? songLyrics.length : 0);
-        log('Lyrics preview:', songLyrics ? songLyrics.substring(0, 100) + '...' : 'EMPTY');
+        // Collect all metadata objects that might contain lyrics/duration
+        const allMetadataSources: any[] = [];
+        if (completedSong.metadata) allMetadataSources.push(completedSong.metadata);
+        // Also check nested track data (s.data[0].metadata)
+        if (Array.isArray(completedSong.data)) {
+          for (const track of completedSong.data) {
+            if (track.metadata) allMetadataSources.push(track.metadata);
+          }
+        }
 
-        // Duration: search ALL songs for metadata.duration.
-        // Fallback to 180s (3 minutes, typical Suno Chirp v5 length) so UI never shows 0:00.
-        const rawDuration =
-          (completedSong.metadata && completedSong.metadata.duration) ??
-          completedSong.duration ??
-          songs.find((s: any) => s.metadata && s.metadata.duration)?.metadata?.duration;
+        // Lyrics: look in gpt_description_prompt first, then prompt, then lyrics
+        let songLyrics = '';
+        let lyricsSource = 'none';
+        for (const meta of allMetadataSources) {
+          if (meta.gpt_description_prompt && meta.gpt_description_prompt.length > songLyrics.length) {
+            songLyrics = meta.gpt_description_prompt;
+            lyricsSource = 'gpt_description_prompt';
+          }
+          if (meta.prompt && meta.prompt.length > songLyrics.length) {
+            songLyrics = meta.prompt;
+            lyricsSource = 'prompt';
+          }
+          if (meta.lyrics && meta.lyrics.length > songLyrics.length) {
+            songLyrics = meta.lyrics;
+            lyricsSource = 'lyrics';
+          }
+        }
+        // Fallback to top-level fields
+        if (!songLyrics) {
+          songLyrics = completedSong.prompt || completedSong.lyrics || completedSong.description || '';
+          if (songLyrics) lyricsSource = 'top-level';
+        }
+
+        log('Lyrics source:', { source: lyricsSource, length: songLyrics ? songLyrics.length : 0 });
+        log('Lyrics preview:', songLyrics ? songLyrics.substring(0, 150) + '...' : 'EMPTY');
+
+        // Duration: look in metadata.duration (both song-level and track-level)
+        let rawDuration: number | undefined;
+        for (const meta of allMetadataSources) {
+          if (typeof meta.duration === 'number' && isFinite(meta.duration) && meta.duration > 0) {
+            rawDuration = meta.duration;
+            break;
+          }
+        }
+        if (rawDuration === undefined) {
+          rawDuration = completedSong.duration;
+        }
         const songDuration = (typeof rawDuration === 'number' && isFinite(rawDuration) && rawDuration > 0)
           ? rawDuration
           : 180;
