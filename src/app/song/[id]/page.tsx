@@ -105,13 +105,18 @@ async function getSongData(id: string): Promise<SongData> {
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000';
-  
+
   let coverImageUrl = order.coverImageUrl;
   if (!coverImageUrl) {
     coverImageUrl = MapGenreToImage(order.genre);
   } else if (coverImageUrl.startsWith('/')) {
     coverImageUrl = `${baseUrl}${coverImageUrl}`;
   }
+
+  // Duration safety: ensure valid number > 0, fallback to 180s so UI never shows 0:00
+  const rawDur = order.duration;
+  const durNum = rawDur ? parseFloat(rawDur) : NaN;
+  const safeDuration = (isFinite(durNum) && durNum > 0) ? String(durNum) : '180';
 
   return {
     id: order.id,
@@ -121,7 +126,7 @@ async function getSongData(id: string): Promise<SongData> {
     audioUrl: order.audioUrl || undefined,
     lyrics: order.lyrics || undefined,
     coverImageUrl,
-    duration: order.duration || undefined,
+    duration: safeDuration,
     status: order.status,
   };
 }

@@ -569,11 +569,15 @@ export async function pollForResult(taskId: string): Promise<GenerateSongRespons
           log('Lyrics length:', songLyrics ? songLyrics.length : 0);
           log('Lyrics preview:', songLyrics ? songLyrics.substring(0, 100) + '...' : 'EMPTY');
 
-          // Duration: search ALL songs for metadata.duration
-          const songDuration =
-            (song.metadata && song.metadata.duration) ||
-            song.duration ||
+          // Duration: search ALL songs for metadata.duration.
+          // Fallback to 180s so UI never shows 0:00.
+          const rawDuration =
+            (song.metadata && song.metadata.duration) ??
+            song.duration ??
             songs.find((s: any) => s.metadata && s.metadata.duration)?.metadata?.duration;
+          const songDuration = (typeof rawDuration === 'number' && isFinite(rawDuration) && rawDuration > 0)
+            ? rawDuration
+            : 180;
 
           const result: GenerateSongResponse = {
             success: true,
@@ -706,13 +710,17 @@ export async function checkResultOnce(taskId: string): Promise<GenerateSongRespo
         log('Lyrics length:', songLyrics ? songLyrics.length : 0);
         log('Lyrics preview:', songLyrics ? songLyrics.substring(0, 100) + '...' : 'EMPTY');
 
-        // Duration: search ALL songs for metadata.duration
-        const songDuration =
-          (completedSong.metadata && completedSong.metadata.duration) ||
-          completedSong.duration ||
+        // Duration: search ALL songs for metadata.duration.
+        // Fallback to 180s (3 minutes, typical Suno Chirp v5 length) so UI never shows 0:00.
+        const rawDuration =
+          (completedSong.metadata && completedSong.metadata.duration) ??
+          completedSong.duration ??
           songs.find((s: any) => s.metadata && s.metadata.duration)?.metadata?.duration;
+        const songDuration = (typeof rawDuration === 'number' && isFinite(rawDuration) && rawDuration > 0)
+          ? rawDuration
+          : 180;
 
-        log('Duration:', songDuration);
+        log('Raw duration:', { raw: rawDuration, final: songDuration });
 
         const result: GenerateSongResponse = {
           success: true,

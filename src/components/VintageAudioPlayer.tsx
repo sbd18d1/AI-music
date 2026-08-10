@@ -18,6 +18,7 @@ const WATERMARK_PATH = '/audio/watermark.mp3';
 export default function VintageAudioPlayer({ src, controlsList, isPreview = false, duration }: VintageAudioPlayerProps) {
   // Parse the prop duration to a finite number (seconds), or 0 if invalid
   const propDuration = (() => {
+    if (duration === undefined || duration === null || duration === '') return 0;
     const n = typeof duration === 'string' ? parseFloat(duration) : duration;
     return typeof n === 'number' && isFinite(n) && n > 0 ? n : 0;
   })();
@@ -29,7 +30,8 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
   
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [totalDuration, setTotalDuration] = useState(0);
+  // Initialize totalDuration from prop directly (do NOT wait for useEffect)
+  const [totalDuration, setTotalDuration] = useState<number>(propDuration);
   const [isMuted, setIsMuted] = useState(false);
   const [isPlayingWatermark, setIsPlayingWatermark] = useState(false);
   const [watermarkEnabled, setWatermarkEnabled] = useState(false);

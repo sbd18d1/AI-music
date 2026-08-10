@@ -67,6 +67,11 @@ export async function GET(
 
     // If already completed in DB, return immediately
     if (order.status === 'success' && order.audioUrl) {
+      // Duration: use DB value, fallback to 180s if missing so UI never shows 0:00
+      const durStr = order.duration;
+      const durNum = durStr ? parseFloat(durStr) : NaN;
+      const safeDuration = (isFinite(durNum) && durNum > 0) ? durStr : '180';
+
       return NextResponse.json({
         success: true,
         status: 'completed',
@@ -76,7 +81,7 @@ export async function GET(
         lyrics: order.lyrics || '',
         title: order.title || '',
         coverImageUrl: order.coverImageUrl || '',
-        duration: order.duration || '',
+        duration: safeDuration,
       });
     }
 
@@ -103,6 +108,12 @@ export async function GET(
         console.log(`[${new Date().toISOString()}] Saving Suno CDN URL to DB for order: ${order.id}`);
       }
 
+      // Duration safety: result.duration already has 180s fallback from checkResultOnce,
+      // but guard here too so DB and response always have a valid number string.
+      const durResultStr = result.duration;
+      const durResultNum = durResultStr ? parseFloat(durResultStr) : NaN;
+      const safeDuration = (isFinite(durResultNum) && durResultNum > 0) ? String(durResultNum) : '180';
+
       // Save to DB
       await prisma.order.update({
         where: { id: order.id },
@@ -112,7 +123,7 @@ export async function GET(
           lyrics: result.lyrics || null,
           title: result.title || null,
           coverImageUrl: result.coverImageUrl || null,
-          duration: result.duration || null,
+          duration: safeDuration,
         },
       });
 
@@ -125,7 +136,7 @@ export async function GET(
         lyrics: result.lyrics || '',
         title: result.title || '',
         coverImageUrl: result.coverImageUrl || '',
-        duration: result.duration || '',
+        duration: safeDuration,
       });
     }
 
