@@ -63,6 +63,8 @@ async function findExistingTrialOrder(deviceId: string | undefined) {
 }
 
 export async function POST(request: NextRequest) {
+  const t0 = Date.now();
+  const reqId = `[${new Date().toISOString()}] [gen]`;
   try {
     const ipAddress = getClientIp(request);
     const AI_GENERATION_MODE = process.env.NEXT_PUBLIC_AI_GENERATION_MODE || 'mock';
@@ -70,7 +72,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const deviceId: string | undefined = body.deviceId;
 
-    console.log(`[${new Date().toISOString()}] Trial request from IP: ${ipAddress}, deviceId: ${deviceId || 'none'}`);
+    console.log(`${reqId} Trial request from IP: ${ipAddress}, deviceId: ${deviceId || 'none'}`);
 
     if (AI_GENERATION_MODE !== 'mock') {
       const hasUsedTrial = await checkTrialLimit(deviceId);
@@ -144,6 +146,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    const tGen = Date.now();
     const aiResponse = await generateSong({
       recipientName,
       personality,
@@ -154,6 +157,7 @@ export async function POST(request: NextRequest) {
       songConfig,
       waitForResult: AI_GENERATION_MODE === 'mock',
     });
+    console.log(`${reqId} generateSong: ${Date.now() - tGen}ms, success=${aiResponse.success}, hasTaskId=${!!aiResponse.requestId}, hasAudio=${!!aiResponse.audioUrl}`);
 
     if (aiResponse.success && aiResponse.requestId && !aiResponse.audioUrl) {
       await prisma.order.update({

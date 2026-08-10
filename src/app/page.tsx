@@ -311,14 +311,20 @@ export default function Home() {
   const pollGenerationStatus = async (taskId: string) => {
     const maxRetries = 120;
     const delay = 5000;
+    const pollStartTime = Date.now();
 
     for (let i = 0; i < maxRetries; i++) {
+      const pollT0 = Date.now();
       try {
+        console.log(`[poll #${i + 1}] START at +${Date.now() - pollStartTime}ms`);
         const response = await fetch(`/api/generate-status/${taskId}`);
         const data = await response.json();
+        const fetchMs = Date.now() - pollT0;
+        console.log(`[poll #${i + 1}] response in ${fetchMs}ms, status=${data.status}`);
 
         if (data.success) {
           if (data.status === 'completed' && data.audioUrl) {
+            console.log(`[poll] COMPLETED after ${Date.now() - pollStartTime}ms total, ${i + 1} polls`);
             setAudioUrl(data.audioUrl);
             setIsPreview(data.isPreview || true);
             setSongTitle(data.title || '');

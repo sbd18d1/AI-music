@@ -332,12 +332,14 @@ export async function generateSong(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
 
+    const submitT0 = Date.now();
     const response = await fetch(submitUrl, {
       method: 'POST',
       headers: requestHeaders,
       body: JSON.stringify(requestBody),
       signal: controller.signal,
     });
+    console.log(`[${new Date().toISOString()}] [submit] 302.ai submit took ${Date.now() - submitT0}ms, status=${response.status}`);
 
     clearTimeout(timeoutId);
 
@@ -623,11 +625,13 @@ export async function pollForResult(taskId: string): Promise<GenerateSongRespons
  * 前端负责轮询循环，每次调用只查一次 302.ai 并立即返回。
  */
 export async function checkResultOnce(taskId: string): Promise<GenerateSongResponse> {
+  const t0 = Date.now();
   try {
     // Add cache-busting timestamp to prevent 302.ai CDN from returning stale "running" responses
     const fetchUrl = `${THREE02_AI_BASE_URL}/suno/fetch/${taskId}?_t=${Date.now()}`;
     log('Single check - GET:', fetchUrl);
 
+    const t1 = Date.now();
     const response = await fetch(fetchUrl, {
       method: 'GET',
       headers: {
@@ -636,8 +640,12 @@ export async function checkResultOnce(taskId: string): Promise<GenerateSongRespo
         'Pragma': 'no-cache',
       },
     });
+    const t2 = Date.now();
+    log(`302.ai fetch took ${t2 - t1}ms, status: ${response.status}`);
 
     const responseBodyText = await response.text();
+    const t3 = Date.now();
+    log(`Response body read took ${t3 - t2}ms, length: ${responseBodyText.length}`);
     log('Single check response status:', response.status);
     log('Single check response body (first 2000 chars):', responseBodyText.substring(0, 2000));
 
@@ -747,9 +755,10 @@ export async function checkResultOnce(taskId: string): Promise<GenerateSongRespo
     }
 
     // 还在生成中
+    log(`checkResultOnce total: ${Date.now() - t0}ms (still generating)`);
     return { success: false, requestId: taskId };
   } catch (error: any) {
-    log('Single check error:', {
+    log(`checkResultOnce error after ${Date.now() - t0}ms:`, {
       message: error.message,
       code: error.cause?.code || error.code,
     });
