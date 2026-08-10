@@ -724,7 +724,7 @@ export default function Home() {
 
             {isLoading && (
               <p className="text-center text-base-content/70 text-sm mt-5">
-                🎵 AI 正在创作中，预计需要 2-3 分钟，请勿关闭页面
+                🎵 AI is creating your song — estimated 2-3 minutes. Please don't close this page.
               </p>
             )}
 
