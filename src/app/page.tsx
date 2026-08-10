@@ -551,7 +551,7 @@ export default function Home() {
           </p>
         </header>
 
-        <div id="how-it-works" className="bg-base-200/80 border border-base-300 rounded-2xl p-4 shadow-vintage mb-10">
+        <div id="how-it-works" className="bg-base-200/80 border border-base-300 rounded-2xl p-4 shadow-vintage mb-10 scroll-mt-20">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="flex items-start gap-3">
               <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -625,7 +625,7 @@ export default function Home() {
         </div>
 
         {!showResult && (
-          <form id="pricing" className="bg-base-200/80 border border-base-300 p-5 md:p-8 shadow-vintage rounded-2xl">
+          <form id="pricing" className="bg-base-200/80 border border-base-300 p-5 md:p-8 shadow-vintage rounded-2xl scroll-mt-20">
             <h2 className="font-serif text-xl md:text-2xl font-bold text-base-content text-center mb-6">
               Create Your Song
             </h2>
