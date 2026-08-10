@@ -726,6 +726,12 @@ export default function Home() {
               </div>
             </div>
 
+            {isLoading && (
+              <p className="text-center text-base-content/70 text-sm mt-5">
+                🎵 AI 正在创作中，预计需要 2-3 分钟，请勿关闭页面
+              </p>
+            )}
+
             <p className="text-center text-base-content/60 text-sm mt-5">
               Secure payment via Apple Pay / Google Pay / Card / PayPal. No subscription, one-time purchase only.
             </p>
