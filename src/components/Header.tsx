@@ -19,9 +19,9 @@ export default function Header() {
           <a href="/#how-it-works" className="text-base-content/70 hover:text-primary transition-colors hidden sm:inline">
             How It Works
           </a>
-          <a href="/#pricing" className="text-base-content/70 hover:text-primary transition-colors hidden sm:inline">
+          <Link href="/pricing" className="text-base-content/70 hover:text-primary transition-colors hidden sm:inline">
             Pricing
-          </a>
+          </Link>
           <Link href="/terms" className="text-base-content/70 hover:text-primary transition-colors">
             Terms
           </Link>
