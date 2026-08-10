@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/db/client';
 import { checkResultOnce } from '@/lib/ai-music';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -27,35 +25,6 @@ export async function GET(
     }
 
     const isDev = process.env.NODE_ENV === 'development';
-
-    // Helper: download audio and save locally (only works in self-hosted/dev environments with writable FS)
-    // On Vercel, writes are not persisted, so falls back to proxying via stream-audio route.
-    const downloadAndSaveAudio = async (audioUrl: string, orderId: string): Promise<string | null> => {
-      try {
-        // Skip writing on Vercel — filesystem is read-only and /tmp is not served
-        if (process.env.VERCEL === '1' || process.env.NEXT_PUBLIC_VERCEL_ENV) {
-          console.log(`[${new Date().toISOString()}] Vercel env detected, skipping local audio save`);
-          return null;
-        }
-
-        const res = await fetch(audioUrl);
-        if (!res.ok) return null;
-        const buffer = Buffer.from(await res.arrayBuffer());
-        if (buffer.length < 100) return null; // invalid audio
-        
-        const audioDir = join(process.cwd(), 'public', 'audio');
-        await mkdir(audioDir, { recursive: true });
-        const fileName = `${orderId}.mp3`;
-        const filePath = join(audioDir, fileName);
-        await writeFile(filePath, buffer);
-        
-        console.log(`[${new Date().toISOString()}] Audio saved locally: ${filePath} (${buffer.length} bytes)`);
-        return `/audio/${fileName}`;
-      } catch (e) {
-        console.error(`[${new Date().toISOString()}] Failed to save audio locally:`, e);
-        return null;
-      }
-    };
 
     // Helper: resolve DB audioUrl to frontend URL
     // - local paths (/audio/xxx.mp3): served directly
@@ -98,15 +67,12 @@ export async function GET(
     const result = await checkResultOnce(taskId);
 
     if (result.success && result.audioUrl) {
-      // Try to download and save audio locally (only on self-hosted environments)
-      // On Vercel, this is skipped and Suno URL is stored in DB; stream-audio proxies it.
-      const localPath = await downloadAndSaveAudio(result.audioUrl, order.id);
-      const finalAudioUrl = localPath || result.audioUrl;
-      if (localPath) {
-        console.log(`[${new Date().toISOString()}] Using local audio for order: ${order.id}`);
-      } else {
-        console.log(`[${new Date().toISOString()}] Saving Suno CDN URL to DB for order: ${order.id}`);
-      }
+      // On Vercel (serverless), downloading the full MP3 to /public/audio/ is useless
+      // (filesystem is ephemeral) and adds ~30-60s delay waiting for the full download.
+      // stream-audio route already proxies the Suno CDN URL with streaming, so we skip
+      // the download entirely and store the remote URL directly.
+      const finalAudioUrl = result.audioUrl;
+      console.log(`[${new Date().toISOString()}] Saving Suno CDN URL to DB for order: ${order.id}`);
 
       // Duration safety: result.duration already has 180s fallback from checkResultOnce,
       // but guard here too so DB and response always have a valid number string.
