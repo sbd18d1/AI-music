@@ -10,12 +10,17 @@ export async function GET(
   request: Request,
   { params }: { params: { taskId: string } }
 ) {
+  const t0 = Date.now();
+  const reqId = `[${new Date().toISOString()}] [status:${request.headers.get('x-vercel-id') || 'local'}]`;
   try {
     const taskId = params.taskId;
+    console.log(`${reqId} === generate-status START taskId=${taskId} ===`);
 
+    const t1 = Date.now();
     const order = await prisma.order.findFirst({
       where: { aiRequestId: taskId },
     });
+    console.log(`${reqId} DB findFirst: ${Date.now() - t1}ms, order.status=${order?.status || 'not found'}`);
 
     if (!order) {
       return NextResponse.json(
@@ -64,7 +69,9 @@ export async function GET(
 
     // Do a SINGLE check of 302.ai (no internal loop) and return immediately.
     // The frontend polling loop controls retry timing.
+    const t2 = Date.now();
     const result = await checkResultOnce(taskId);
+    console.log(`${reqId} checkResultOnce: ${Date.now() - t2}ms, success=${result.success}, hasAudio=${!!result.audioUrl}`);
 
     if (result.success && result.audioUrl) {
       // On Vercel (serverless), downloading the full MP3 to /public/audio/ is useless
@@ -72,7 +79,6 @@ export async function GET(
       // stream-audio route already proxies the Suno CDN URL with streaming, so we skip
       // the download entirely and store the remote URL directly.
       const finalAudioUrl = result.audioUrl;
-      console.log(`[${new Date().toISOString()}] Saving Suno CDN URL to DB for order: ${order.id}`);
 
       // Duration safety: result.duration already has 180s fallback from checkResultOnce,
       // but guard here too so DB and response always have a valid number string.
@@ -81,6 +87,7 @@ export async function GET(
       const safeDuration = (isFinite(durResultNum) && durResultNum > 0) ? String(durResultNum) : '180';
 
       // Save to DB
+      const t3 = Date.now();
       await prisma.order.update({
         where: { id: order.id },
         data: {
@@ -92,6 +99,8 @@ export async function GET(
           duration: safeDuration,
         },
       });
+      console.log(`${reqId} DB update: ${Date.now() - t3}ms`);
+      console.log(`${reqId} === COMPLETED total=${Date.now() - t0}ms ===`);
 
       return NextResponse.json({
         success: true,
@@ -120,12 +129,13 @@ export async function GET(
     }
 
     // Still generating — frontend will poll again
+    console.log(`${reqId} === still generating, total=${Date.now() - t0}ms ===`);
     return NextResponse.json({
       success: true,
       status: 'generating',
     });
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] Status check error:`, error);
+    console.error(`${reqId} Status check error after ${Date.now() - t0}ms:`, error);
     return NextResponse.json({
       success: true,
       status: 'generating',
