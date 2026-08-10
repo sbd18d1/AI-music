@@ -67,6 +67,7 @@ export default function Home() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showResult, setShowResult] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [audioUrl, setAudioUrl] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isPreview, setIsPreview] = useState(false);
@@ -124,6 +125,21 @@ export default function Home() {
 
   // Price is hardcoded to $9.90 for now (Paddle account pending configuration)
   // Dynamic price fetching disabled until Paddle configuration is approved
+
+  // Elapsed timer: counts up while isLoading is true, so the user has a
+  // visible "已经等待 X 秒" cue alongside the estimated 2-3 minute range.
+  useEffect(() => {
+    if (!isLoading) {
+      setElapsedSeconds(0);
+      return;
+    }
+    setElapsedSeconds(0);
+    const startTs = Date.now();
+    const t = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startTs) / 1000));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [isLoading]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -721,6 +737,30 @@ export default function Home() {
                 </p>
               </div>
             </div>
+
+            {isLoading && (
+              <div className="mt-6 p-5 rounded-xl bg-primary/10 border-2 border-primary/30 text-center">
+                <div className="flex items-center justify-center gap-3 mb-3">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <span className="font-serif text-xl font-bold text-base-content">
+                    AI 正在为您创作歌曲
+                  </span>
+                </div>
+                <p className="text-base-content/80 text-base mb-2">
+                  预计需要 <strong className="text-primary">2-3 分钟</strong>，请耐心等待，不要关闭页面
+                </p>
+                <p className="text-base-content/60 text-sm">
+                  已等待 <strong className="text-base-content">
+                    {Math.floor(elapsedSeconds / 60)}:{(elapsedSeconds % 60).toString().padStart(2, '0')}
+                  </strong>
+                  {elapsedSeconds < 120 ? (
+                    <span className="ml-2">· 正在生成中...</span>
+                  ) : (
+                    <span className="ml-2 text-warning">· 即将完成，请稍候...</span>
+                  )}
+                </p>
+              </div>
+            )}
 
             <p className="text-center text-base-content/60 text-sm mt-5">
               Secure payment via Apple Pay / Google Pay / Card / PayPal. No subscription, one-time purchase only.
