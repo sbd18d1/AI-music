@@ -677,7 +677,7 @@ export default function Home() {
                   {isLoading ? (
                     <>
                       <Loader2 className="w-6 h-6 animate-spin" />
-                      Generating...
+                      Generating... (est. 2-3 min)
                     </>
                   ) : (
                     <>
@@ -721,12 +721,6 @@ export default function Home() {
                 </p>
               </div>
             </div>
-
-            {isLoading && (
-              <p className="text-center text-base-content/70 text-sm mt-5">
-                🎵 AI is creating your song — estimated 2-3 minutes. Please don't close this page.
-              </p>
-            )}
 
             <p className="text-center text-base-content/60 text-sm mt-5">
               Secure payment via Apple Pay / Google Pay / Card / PayPal. No subscription, one-time purchase only.
