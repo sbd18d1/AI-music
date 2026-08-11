@@ -33,9 +33,12 @@ export async function GET(
 
     // Helper: resolve DB audioUrl to frontend URL
     // - local paths (/audio/xxx.mp3): served directly
-    // - remote Suno URLs: proxied via /api/stream-audio/{orderId} (handles CORS + expiration)
+    // - remote URLs (http/https): use directly — <audio> tag is not subject to CORS,
+    //   and Vercel serverless functions buffer the entire response body, causing
+    //   ~1 minute playback delay when proxying large MP3 files.
     const frontendUrlFor = (orderId: string, audioUrl: string): string => {
       if (audioUrl.startsWith('/audio/')) return audioUrl;
+      if (audioUrl.startsWith('http://') || audioUrl.startsWith('https://')) return audioUrl;
       return `/api/stream-audio/${orderId}`;
     };
 
