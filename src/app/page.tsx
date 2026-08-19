@@ -3,12 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Sparkles, Music, Heart, Zap, CreditCard, Loader2, Check, Rocket, Lock, ArrowRight, Download, Mail, RefreshCw } from 'lucide-react';
 import { getDeliveryStrategy, DELIVERY_MODE, type DeliveryStrategy, type DeviceSession } from '@/lib/deliveryStrategy';
-import EmailModal from '@/components/EmailModal';
 import SongConfigPanel from '@/components/SongConfigPanel';
 import VintageAudioPlayer from '@/components/VintageAudioPlayer';
 import { DEFAULT_SELECTION, isSelectionComplete, deriveGenreFromConfig, type SongConfigSelection } from '@/lib/song-config';
 import { getDeviceId } from '@/lib/device-id';
-import { usePaddle } from '@/lib/paddle';
 
 type Style = 'Classic Rock' | 'Country & Folk' | 'Blues & Soul' | '60s/70s Pop Ballad';
 type ArtistStyle = 'None' | 'Frank Sinatra' | 'Elvis Presley' | 'The Beatles' | 'The Rolling Stones' | 'Bob Dylan' | 'Simon & Garfunkel' | 'Aretha Franklin' | 'Neil Diamond' | 'Johnny Cash';
@@ -77,11 +75,13 @@ export default function Home() {
   const [currentTime, setCurrentTime] = useState(0);
   const [orderId, setOrderId] = useState('');
 
-  const [showEmailModal, setShowEmailModal] = useState(false);
   const [userEmail, setUserEmail] = useState('');
   const [paymentComplete, setPaymentComplete] = useState(false);
   const [isPaidDevice, setIsPaidDevice] = useState(false);
   const [showPaidForm, setShowPaidForm] = useState(false);
+  // Whether the device has already used its one free trial generation. Once true,
+  // the form must only offer paid generation (no free "Hear a Preview" button).
+  const [hasUsedFreeTrial, setHasUsedFreeTrial] = useState(false);
 
   const [songConfig, setSongConfig] = useState<SongConfigSelection>(DEFAULT_SELECTION);
   const [productPrice, setProductPrice] = useState<string>('$9.90');
@@ -89,41 +89,8 @@ export default function Home() {
   
   const deliveryStrategy = getDeliveryStrategy();
 
-  const handlePaddleEvent = useCallback((eventName: string, eventData: unknown) => {
-    console.log('[Paddle] Event received:', eventName, eventData);
-    if (eventName === 'checkout.completed') {
-      const data = eventData as Record<string, unknown>;
-      console.log('[Paddle] Checkout completed:', data);
-      const customData = (data?.custom_data ?? data?.customData) as { orderId?: string } | undefined;
-      const orderId = customData?.orderId;
-      const paddleTransactionId = data?.id as string | undefined;
-      
-      if (orderId) {
-        // Save both IDs to sessionStorage so order-status page can trigger delivery
-        sessionStorage.setItem('paddle_completed_order_id', orderId);
-        if (paddleTransactionId) {
-          sessionStorage.setItem('paddle_transaction_id', paddleTransactionId);
-        }
-        console.log('[Paddle] Saved orderId:', orderId, 'paddleTxId:', paddleTransactionId);
-        
-        // Redirect - order-status page will handle fulfillment on load
-        window.location.href = `/order-status?order_id=${orderId}&provider=paddle`;
-      }
-    } else if (eventName === 'checkout.error' || eventName === 'checkout.payment.error') {
-      const data = eventData as Record<string, unknown>;
-      console.error('[Paddle] Checkout error (full):', JSON.stringify(data));
-      const errDetail = (data?.detail as string) || '';
-      const errCode = (data?.code as string) || '';
-      const errType = (data?.type as string) || '';
-      const errMsg = errDetail || errCode || errType || JSON.stringify(data) || 'Unknown error';
-      alert('Payment error: ' + errMsg + (errCode ? ` (Code: ${errCode})` : ''));
-    }
-  }, []);
-
-  const { isReady: paddleReady, openCheckout: openPaddleCheckout, fetchPrice: fetchPaddlePrice } = usePaddle(handlePaddleEvent);
-
-  // Price is hardcoded to $9.90 for now (Paddle account pending configuration)
-  // Dynamic price fetching disabled until Paddle configuration is approved
+  // Price is fixed at $9.90 (matches /api/paypal/create-order PURCHASE_PRICE).
+  // No dynamic price fetching — PayPal shows the actual total in its checkout window.
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -189,6 +156,9 @@ export default function Home() {
     }
     
     if (deliveryStrategy.hasUnpaidSong() || deliveryStrategy.getSavedSongData()) {
+      // Restoring a saved trial song means this device already used its one free trial,
+      // so the form must only offer paid generation from here on.
+      setHasUsedFreeTrial(true);
       const savedSong = deliveryStrategy.getSavedSongData();
       if (savedSong) {
         setAudioUrl(savedSong.audioUrl);
@@ -213,7 +183,7 @@ export default function Home() {
   const handleGenerateSong = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.description) {
+    if (!formData.description || !formData.description.trim()) {
         alert('Please fill in the description');
         return;
       }
@@ -259,6 +229,8 @@ export default function Home() {
           setSongDuration(data.duration || '');
           setOrderId(data.orderId || '');
           setShowResult(true);
+          // This device has now used its one free trial generation.
+          setHasUsedFreeTrial(true);
 
           // Persist trial orderId so it can be passed to the payment flow after refresh
           if (data.orderId) {
@@ -333,6 +305,8 @@ export default function Home() {
             setSongDuration(data.duration || '');
             setOrderId(data.orderId || '');
             setShowResult(true);
+            // This device has now used its one free trial generation.
+            setHasUsedFreeTrial(true);
 
             // Persist trial orderId so it can be passed to the payment flow after refresh
             if (data.orderId) {
@@ -376,131 +350,124 @@ export default function Home() {
     setShowResult(true);
   };
 
-  const handleBuyWithEmail = (email: string) => {
-    setUserEmail(email);
-    setShowEmailModal(false);
-    handleBuyFullVersion(email);
-  };
+  // ===== PayPal payment flow helpers =====
+  // Payload builders used by the purchase buttons to create a PayPal order (and, on
+  // capture, reuse the already-generated preview song when paying for the full version).
 
-  const handleBuyFullVersion = (email?: string) => {
-    if (!formData.description) {
-      alert('Please fill in the description');
-      return;
-    }
-    const userEmailAddress = email || userEmail || undefined;
-    const personality = (formData.description || 'Custom song request').slice(0, 900);
+  // Build payload for "Get Full Song" — reuses the preview song (trialOrderId passed).
+  const buildBuyFullVersionPayload = useCallback((): Record<string, unknown> => {
+    const personality = (formData.description || '').trim().slice(0, 900);
     const genre = deriveGenreFromConfig(songConfig);
-
-    // Use trialOrderId from state, or fall back to localStorage (covers page-refresh case)
     const trialOrderId = orderId || localStorage.getItem('trial_order_id') || undefined;
-
-    setIsLoading(true);
 
     const payload: Record<string, unknown> = {
       recipientName: 'Gift Recipient',
-      personality: personality,
-      genre: genre,
+      personality,
+      genre,
       selectedStyle: genre,
       selectedArtistStyle: 'None',
     };
 
-    if (userEmailAddress) {
-      payload.userEmail = userEmailAddress;
+    if (userEmail) {
+      payload.userEmail = userEmail;
     }
-
     if (trialOrderId) {
       payload.trialOrderId = trialOrderId;
     }
 
     payload.songConfig = songConfig;
+    return payload;
+  }, [formData, songConfig, orderId, userEmail]);
 
-    fetch('/api/paddle/create-transaction', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        setIsLoading(false);
-        if (data.success && data.orderId) {
-          const priceId = process.env.NEXT_PUBLIC_PADDLE_PRICE_ID || '';
-          if (paddleReady && openPaddleCheckout && priceId) {
-            openPaddleCheckout({
-              items: [{ priceId, quantity: 1 }],
-              email: userEmailAddress,
-              customData: { orderId: data.orderId },
-            });
-          } else {
-            alert('Paddle not ready. Please try again.');
-          }
-        } else {
-          alert('Failed to create order: ' + (data.error || 'Unknown error'));
-        }
-      })
-      .catch((error) => {
-        setIsLoading(false);
-        console.error('Error:', error);
-        alert('An error occurred: ' + (error?.message || 'Unknown network error'));
-      });
-  };
-
-  // 付费重新生成一首全新的歌（不使用试听歌曲，覆盖之前的试听结果）
-  const handleBuyNewSong = (email?: string) => {
-    const userEmailAddress = email || userEmail || undefined;
-    const personality = (formData.description || 'Custom song request').slice(0, 900);
+  // Build payload for "Generate a Brand New Song" — no trialOrderId, fresh generation after payment.
+  const buildBuyNewSongPayload = useCallback((): Record<string, unknown> => {
+    const personality = (formData.description || '').trim().slice(0, 900);
     const genre = deriveGenreFromConfig(songConfig);
-
-    setIsLoading(true);
 
     const payload: Record<string, unknown> = {
       recipientName: 'Gift Recipient',
-      personality: personality,
-      genre: genre,
+      personality,
+      genre,
       selectedStyle: genre,
       selectedArtistStyle: 'None',
-      // 不传 trialOrderId — 支付后系统会生成全新歌曲
+      // Note: no trialOrderId — backend will generate a brand new song after capture
     };
 
-    if (userEmailAddress) {
-      payload.userEmail = userEmailAddress;
+    if (userEmail) {
+      payload.userEmail = userEmail;
     }
 
     payload.songConfig = songConfig;
+    return payload;
+  }, [formData, songConfig, userEmail]);
 
-    fetch('/api/paddle/create-transaction', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        setIsLoading(false);
-        if (data.success && data.orderId) {
-          const priceId = process.env.NEXT_PUBLIC_PADDLE_PRICE_ID || '';
-          if (paddleReady && openPaddleCheckout && priceId) {
-            openPaddleCheckout({
-              items: [{ priceId, quantity: 1 }],
-              email: userEmailAddress,
-              customData: { orderId: data.orderId },
-            });
-          } else {
-            alert('Paddle not ready. Please try again.');
-          }
-        } else {
-          alert('Failed to create order: ' + (data.error || 'Unknown error'));
-        }
-      })
-      .catch((error) => {
-        setIsLoading(false);
-        console.error('Error:', error);
-        alert('An error occurred: ' + (error?.message || 'Unknown network error'));
+  // Bool: a PayPal redirect is in-flight. Kept SEPARATE from `isLoading` so the
+  // pay button does NOT show "Generating/Processing" before payment — we want the
+  // user to go straight to PayPal. "Generating" is meant to appear AFTER payment
+  // (on the order-status page), not before.
+  const [isPaying, setIsPaying] = useState(false);
+
+  const handlePayPalRedirect = useCallback(async (buildPayload: () => Record<string, unknown>) => {
+    if (isPaying) return; // guard against double-submit while redirecting
+    setIsPaying(true);
+    try {
+      console.log('[PayPal] Creating order...');
+      const response = await fetch('/api/paypal/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildPayload()),
       });
-  };
+      const data = await response.json();
+      // Redirect to PayPal immediately — no "generating" text before payment.
+      if (data.success && data.links) {
+        const approvalLink = data.links.find((link: { rel: string }) => link.rel === 'approve');
+        if (approvalLink) {
+          window.location.href = approvalLink.href;
+          return; // page navigates away; no need to reset isPaying
+        }
+        throw new Error('No PayPal approval link returned');
+      }
+      throw new Error(data.error || 'Failed to create PayPal order');
+    } catch (err) {
+      setIsPaying(false);
+      console.error('[PayPal] Create order error:', err);
+      const msg = err instanceof Error ? err.message : 'Payment error';
+      alert('Payment failed: ' + msg);
+    }
+  }, [isPaying]);
+
+  const handleBuyFullVersion = useCallback(() => {
+    if (!formData.description || !formData.description.trim()) {
+      alert('Please fill in the description first');
+      return;
+    }
+    handlePayPalRedirect(buildBuyFullVersionPayload);
+  }, [formData.description, handlePayPalRedirect, buildBuyFullVersionPayload]);
+
+  const handleBuyNewSong = useCallback(() => {
+    if (!formData.description || !formData.description.trim()) {
+      alert('Please fill in the description first');
+      return;
+    }
+    handlePayPalRedirect(buildBuyNewSongPayload);
+  }, [formData.description, handlePayPalRedirect, buildBuyNewSongPayload]);
+
+  // "Generate a brand new song" from the trial results area: scroll back to the
+  // always-visible description form so the user can revise their prompt, then pay
+  // to generate a brand new song (which replaces the free trial one).
+  const handleGenerateNew = useCallback(() => {
+    setPaymentComplete(false);
+    const formEl = document.getElementById('pricing');
+    if (formEl) {
+      formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
 
   const handleDownload = () => {
     if (deliveryStrategy.canDownload()) {
       downloadAudio();
     } else {
+      // Payment required — trigger the Create Full Song checkout instead.
       handleBuyFullVersion();
     }
   };
@@ -628,8 +595,7 @@ export default function Home() {
           </div>
         </div>
 
-        {!showResult && (
-          <form id="pricing" className="bg-base-200/80 border border-base-300 p-5 md:p-8 shadow-vintage rounded-2xl scroll-mt-20">
+        <form id="pricing" className="bg-base-200/80 border border-base-300 p-5 md:p-8 shadow-vintage rounded-2xl scroll-mt-20">
             <h2 className="font-serif text-xl md:text-2xl font-bold text-base-content text-center mb-6">
               Create Your Song
             </h2>
@@ -671,7 +637,7 @@ export default function Home() {
               </div>
 
               <div className="space-y-4">
-                {!isPaidDevice && (
+                {!hasUsedFreeTrial && !isPaidDevice && (
                 <button
                   type="button"
                   onClick={handleGenerateSong}
@@ -691,7 +657,7 @@ export default function Home() {
                   )}
                 </button>
                 )}
-                {!isPaidDevice && (
+                {!hasUsedFreeTrial && !isPaidDevice && (
                   <p className="text-center text-base-content/60 text-sm mt-1">
                     Listen to a short preview. No download.
                   </p>
@@ -699,19 +665,16 @@ export default function Home() {
 
                 <button
                   type="button"
-                  onClick={() => handleBuyFullVersion()}
-                  disabled={isLoading || priceLoading}
-                  className="w-full bg-secondary text-base-content font-bold py-4 px-6 rounded-xl text-lg border-2 border-base-content shadow-sm hover:bg-secondary/90 transition-all flex items-center justify-center gap-3 active:translate-x-1 active:translate-y-1 active:shadow-none"
+                  onClick={handleBuyNewSong}
+                  // Use isPaying (pay-only), NOT isLoading (free-preview shared state),
+                  // so we DON'T flash "Generating" before payment. Going straight to PayPal.
+                  disabled={isPaying}
+                  className="w-full bg-primary text-white font-bold py-4 px-6 rounded-xl text-lg border-2 border-base-content shadow-sm hover:bg-primary/90 transition-all flex items-center justify-center gap-3 active:translate-x-1 active:translate-y-1 active:shadow-none"
                 >
-                  {isLoading ? (
+                  {isPaying ? (
                     <>
                       <Loader2 className="w-6 h-6 animate-spin" />
-                      Processing...
-                    </>
-                  ) : priceLoading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Loading price...
+                      Redirecting to payment...
                     </>
                   ) : (
                     <>
@@ -727,13 +690,12 @@ export default function Home() {
             </div>
 
             <p className="text-center text-base-content/60 text-sm mt-5">
-              Secure payment via Apple Pay / Google Pay / Card / PayPal. No subscription, one-time purchase only.
+              Secure payment via PayPal or credit card. No subscription, one-time purchase only.
             </p>
           </form>
-        )}
 
-        {showResult && (
-          <div className="bg-base-200/80 border border-base-300 p-6 md:p-10 shadow-vintage rounded-2xl">
+        {showResult && !isPaidDevice && (
+          <div className="bg-base-200/80 border border-base-300 p-6 md:p-10 shadow-vintage rounded-2xl mt-8">
             {DELIVERY_MODE === 'SESSION_LOCK' && (
               <div className="flex justify-end mb-4">
                 <button
@@ -858,19 +820,14 @@ export default function Home() {
                     <>
                       <button
                         type="button"
-                        onClick={() => handleBuyFullVersion()}
-                        disabled={isLoading || priceLoading}
-                        className="w-full bg-secondary text-base-content font-bold py-5 px-6 rounded-xl text-xl border-2 border-base-content shadow-sm hover:bg-secondary/90 transition-all flex items-center justify-center gap-3 active:translate-x-1 active:translate-y-1 active:shadow-none"
+                        onClick={handleBuyFullVersion}
+                        disabled={isPaying}
+                        className="w-full bg-primary text-white font-bold py-4 px-6 rounded-xl text-lg border-2 border-base-content shadow-sm hover:bg-primary/90 transition-all flex items-center justify-center gap-3 active:translate-x-1 active:translate-y-1 active:shadow-none"
                       >
-                        {isLoading ? (
+                        {isPaying ? (
                           <>
                             <Loader2 className="w-6 h-6 animate-spin" />
-                            Processing...
-                          </>
-                        ) : priceLoading ? (
-                          <>
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                            Loading price...
+                            Redirecting to payment...
                           </>
                         ) : (
                           <>
@@ -880,20 +837,22 @@ export default function Home() {
                         )}
                       </button>
 
-                      <div className="mt-4 text-center">
-                        <p className="text-base-content/50 text-sm mb-2">Not satisfied with this song?</p>
-                        <button
-                          type="button"
-                          onClick={() => handleBuyNewSong()}
-                          disabled={isLoading || priceLoading}
-                          className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-semibold text-lg underline-offset-4 hover:underline transition-colors disabled:opacity-50"
-                        >
-                          <RefreshCw className="w-4 h-4" />
-                          Generate a Completely New Song Instead ({productPrice})
-                        </button>
-                        <p className="text-base-content/40 text-xs mt-2">
-                          Pays to generate a brand new song with your current settings, replacing this preview.
-                        </p>
+                      <div className="mt-6 border-t border-base-300 pt-6 text-center">
+                        <p className="text-base-content/50 text-sm mb-3">Not satisfied with this song?</p>
+                        <div className="inline-block text-left w-full max-w-md mx-auto">
+                          <p className="text-base-content/50 text-xs mb-3">
+                            Use the form above to write a new description, then pay to generate a brand new song (it replaces this preview).
+                          </p>
+                          <button
+                            type="button"
+                            onClick={handleGenerateNew}
+                            disabled={isLoading}
+                            className="w-full bg-primary text-white font-bold py-4 px-6 rounded-xl border-2 border-base-content shadow-sm hover:bg-primary/90 transition-all flex items-center justify-center gap-3 active:translate-x-1 active:translate-y-1 active:shadow-none"
+                          >
+                            <RefreshCw className="w-5 h-5" />
+                            Generate a Brand New Song ({productPrice})
+                          </button>
+                        </div>
                       </div>
                     </>
                   )}
@@ -934,13 +893,6 @@ export default function Home() {
           </div>
         </footer>
       </div>
-
-      <EmailModal
-        isOpen={showEmailModal}
-        onClose={() => setShowEmailModal(false)}
-        onConfirm={handleBuyWithEmail}
-        songTitle={songTitle || 'your personalized song'}
-      />
 
       <style>{`
         .lyrics-container {

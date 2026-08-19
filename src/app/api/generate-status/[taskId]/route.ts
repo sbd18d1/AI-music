@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/db/client';
-import { checkResultOnce } from '@/lib/ai-music';
+import { checkResultOnce, isPlayableAudioUrl } from '@/lib/ai-music';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -36,14 +36,17 @@ export async function GET(
     // - remote URLs (http/https): use directly — <audio> tag is not subject to CORS,
     //   and Vercel serverless functions buffer the entire response body, causing
     //   ~1 minute playback delay when proxying large MP3 files.
-    const frontendUrlFor = (orderId: string, audioUrl: string): string => {
+    const frontendUrlFor = (orderId: string, audioUrl: string | null): string => {
+      if (!audioUrl) return '';
       if (audioUrl.startsWith('/audio/')) return audioUrl;
       if (audioUrl.startsWith('http://') || audioUrl.startsWith('https://')) return audioUrl;
       return `/api/stream-audio/${orderId}`;
     };
 
-    // If already completed in DB, return immediately
-    if (order.status === 'success' && order.audioUrl) {
+    // If already completed in DB and the stored URL is still playable, return immediately.
+    // If the stored URL is unusable (e.g. a leftover audiopipe link from an old run),
+    // skip the fast path and re-check 302 so we don't hand the frontend a broken URL.
+    if (order.status === 'success' && isPlayableAudioUrl(order.audioUrl)) {
       // Duration: use DB value, fallback to 180s if missing so UI never shows 0:00
       const durStr = order.duration;
       const durNum = durStr ? parseFloat(durStr) : NaN;

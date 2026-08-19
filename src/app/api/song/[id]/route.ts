@@ -21,8 +21,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       );
     }
 
+    // Resolve to a frontend-playable URL: remote http(s) CDN URLs served directly
+    // (playable on mobile + no slow proxy), only /api/stream-audio for local-ish paths.
     const audioUrlForFrontend = order.audioUrl
-      ? (order.audioUrl.startsWith('/audio/')
+      ? (order.audioUrl.startsWith('/audio/') || /^https?:\/\//i.test(order.audioUrl)
           ? order.audioUrl
           : `/api/stream-audio/${order.id}`)
       : null;

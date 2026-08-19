@@ -1,203 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/db/client';
-import { generateSong } from '@/lib/ai-music';
-import { sendSongEmail } from '@/lib/email';
+import { checkResultOnce } from '@/lib/ai-music';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
-export const maxDuration = 300;
+export const maxDuration = 60;
 
-// PUT: Called by frontend when checkout.completed fires (works without webhook)
-export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { orderId, paddleTransactionId } = body;
-
-    if (!orderId) {
-      return NextResponse.json(
-        { error: 'Missing orderId' },
-        { status: 400 }
-      );
-    }
-
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-    });
-
-    if (!order) {
-      return NextResponse.json(
-        { error: 'Order not found' },
-        { status: 404 }
-      );
-    }
-
-    // Already processed, just return
-    if (order.status === 'success') {
-      return NextResponse.json({
-        success: true,
-        message: 'Order already completed',
-        orderId: order.id,
-        status: order.status,
-      });
-    }
-
-    // Save paddleTransactionId and start fulfillment
-    console.log(`[${new Date().toISOString()}] Payment completed for order: ${orderId}, starting fulfillment`);
-
-    const trialOrderId = order.trialOrderId;
-    let finalAudioUrl = order.audioUrl || null;
-    let finalLyrics = order.lyrics || null;
-    let finalTitle = order.title || null;
-    let finalCoverImageUrl = order.coverImageUrl || null;
-    let finalDuration = order.duration || null;
-
-    // Check trial order for existing audio
-    if (trialOrderId) {
-      const trialOrder = await prisma.order.findUnique({
-        where: { id: trialOrderId },
-      });
-
-      if (trialOrder && trialOrder.audioUrl) {
-        console.log(`[${new Date().toISOString()}] Using trial order song for: ${orderId}`);
-        finalAudioUrl = trialOrder.audioUrl;
-        finalLyrics = trialOrder.lyrics;
-        finalTitle = trialOrder.title;
-        finalCoverImageUrl = trialOrder.coverImageUrl;
-        finalDuration = trialOrder.duration;
-      }
-    }
-
-    // If we already have audio (from trial), mark as success immediately
-    if (finalAudioUrl) {
-      await prisma.order.update({
-        where: { id: orderId },
-        data: {
-          status: 'success',
-          paddleTransactionId: paddleTransactionId || order.paddleTransactionId,
-          audioUrl: finalAudioUrl,
-          lyrics: finalLyrics,
-          title: finalTitle,
-          coverImageUrl: finalCoverImageUrl,
-          duration: finalDuration,
-        },
-      });
-
-      // Send email
-      if (order.customerEmail) {
-        try {
-          await sendSongEmail({
-            email: order.customerEmail,
-            recipientName: order.recipientName,
-            audioUrl: finalAudioUrl,
-            title: finalTitle || undefined,
-            lyrics: finalLyrics || undefined,
-            orderId,
-          });
-          console.log(`[${new Date().toISOString()}] Email sent to: ${order.customerEmail}`);
-        } catch (emailError) {
-          console.error(`[${new Date().toISOString()}] Email failed:`, emailError);
-        }
-      }
-
-      return NextResponse.json({
-        success: true,
-        orderId,
-        status: 'success',
-      });
-    }
-
-    // No audio yet - mark as processing and generate song
-    await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        status: 'processing',
-        paddleTransactionId: paddleTransactionId || order.paddleTransactionId,
-      },
-    });
-
-    // Generate full song
-    try {
-      const parsedSongConfig = order.songConfig
-        ? JSON.parse(order.songConfig)
-        : undefined;
-
-      const result = await generateSong({
-        recipientName: order.recipientName,
-        personality: order.personality,
-        genre: order.genre,
-        isPreview: false,
-        selectedStyle: order.selectedStyle || order.genre,
-        selectedArtistStyle: order.selectedArtistStyle ?? undefined,
-        songConfig: parsedSongConfig,
-      });
-
-      if (result.success && result.audioUrl) {
-        await prisma.order.update({
-          where: { id: orderId },
-          data: {
-            status: 'success',
-            audioUrl: result.audioUrl,
-            lyrics: result.lyrics || null,
-            title: result.title || null,
-            coverImageUrl: result.coverImageUrl || null,
-            duration: result.duration || null,
-          },
-        });
-
-        if (order.customerEmail) {
-          try {
-            await sendSongEmail({
-              email: order.customerEmail,
-              recipientName: order.recipientName,
-              audioUrl: result.audioUrl,
-              title: result.title,
-              lyrics: result.lyrics,
-              orderId,
-            });
-          } catch (emailError) {
-            console.error(`[${new Date().toISOString()}] Email failed:`, emailError);
-          }
-        }
-
-        return NextResponse.json({
-          success: true,
-          orderId,
-          status: 'success',
-        });
-      } else {
-        await prisma.order.update({
-          where: { id: orderId },
-          data: { status: 'failed' },
-        });
-        return NextResponse.json({
-          success: false,
-          orderId,
-          status: 'failed',
-          error: 'Song generation failed',
-        });
-      }
-    } catch (generationError) {
-      console.error(`[${new Date().toISOString()}] Song generation error:`, generationError);
-      await prisma.order.update({
-        where: { id: orderId },
-        data: { status: 'failed' },
-      });
-      return NextResponse.json({
-        success: false,
-        orderId,
-        status: 'failed',
-        error: 'Song generation exception',
-      });
-    }
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Update order status error:`, error);
-    return NextResponse.json(
-      { error: 'Failed to update order' },
-      { status: 500 }
-    );
-  }
-}
-
+// GET: Poll order status.
+// - A 'processing' order with an aiRequestId is re-checked against 302.ai once here
+//   (not looped — the frontend already polls every 3s). This is how a slow 302
+//   generation (6-8+ min) eventually flips to success instead of timing out into a
+//   permanent 'failed'; the customer has already paid by this point.
 export async function GET(request: NextRequest) {
   try {
     const urlParams = new URLSearchParams(request.url.split('?')[1]);
@@ -210,11 +23,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const order = await prisma.order.findUnique({
+    let order = await prisma.order.findUnique({
       where: { id: orderId },
     });
 
-    console.log(`[${new Date().toISOString()}] GET order-status for ${orderId}: status=${order?.status}, paddleTxId=${order?.paddleTransactionId}`);
+    console.log(`[${new Date().toISOString()}] GET order-status for ${orderId}: status=${order?.status}, paymentOrderId=${order?.paymentOrderId}`);
 
     if (!order) {
       return NextResponse.json(
@@ -223,11 +36,48 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Local paths are served directly; remote Suno URLs go through /api/stream-audio/{orderId}
+    // If still processing and we have a 302 task id, ask 302 once whether it's done.
+    if (order.status === 'processing' && order.aiRequestId) {
+      const taskId = order.aiRequestId;
+      const pollT0 = Date.now();
+      const result = await checkResultOnce(taskId);
+      console.log(`[${new Date().toISOString()}] Re-check 302 task ${taskId}: success=${result.success}, hasAudio=${!!result.audioUrl}, took=${Date.now() - pollT0}ms`);
+
+      if (result.success && result.audioUrl) {
+        order = await prisma.order.update({
+          where: { id: orderId },
+          data: {
+            status: 'success',
+            audioUrl: result.audioUrl,
+            lyrics: result.lyrics || null,
+            title: result.title || null,
+            coverImageUrl: result.coverImageUrl || null,
+            duration: result.duration || null,
+          },
+        });
+        console.log(`[${new Date().toISOString()}] Order ${orderId} flipped to success (delivered late)`);
+      } else if (result.error) {
+        // 302 reported a real failure for this task.
+        order = await prisma.order.update({
+          where: { id: orderId },
+          data: { status: 'failed' },
+        });
+        console.error(`[${new Date().toISOString()}] Order ${orderId} marked failed, 302 task ${taskId} errored:`, result.error);
+      }
+      // else: still generating — leave status 'processing', frontend keeps polling.
+    }
+
+    // Resolve DB audioUrl to a frontend-playable URL, matching generate-status:
+    // - local paths (/audio/xxx.mp3): served directly
+    // - remote http(s) URLs: use directly — <audio> is not subject to CORS, and
+    //   proxying via /api/stream-audio adds latency (and crashed the dev jest-worker).
+    // - anything else: fall back to the streaming proxy.
     const audioUrlForFrontend = order.audioUrl
-      ? (order.audioUrl.startsWith('/audio/') 
-          ? order.audioUrl 
-          : `/api/stream-audio/${order.id}`)
+      ? (order.audioUrl.startsWith('/audio/')
+          ? order.audioUrl
+          : (order.audioUrl.startsWith('http://') || order.audioUrl.startsWith('https://')
+              ? order.audioUrl
+              : `/api/stream-audio/${order.id}`))
       : null;
 
     return NextResponse.json({

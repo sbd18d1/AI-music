@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/db/client';
-import { generateSong } from '@/lib/ai-music';
+import { generateSong, isPlayableAudioUrl } from '@/lib/ai-music';
 
 const generateSchema = z.object({
   recipientName: z.string().min(1).max(100),
-  personality: z.string().min(5).max(1000),
+  // Description must be non-empty after trimming — whitespace-only is invalid.
+  personality: z.string().trim().min(5).max(1000),
   genre: z.string().min(1).max(100),
   selectedStyle: z.string().optional(),
   selectedArtistStyle: z.string().optional(),
@@ -48,10 +49,12 @@ async function recordTrialUsage(deviceId: string | undefined, ipAddress: string)
 }
 
 // Find an existing successful trial order for this device (by deviceId only).
+// Excludes orders whose stored audio URL is unusable (e.g. leftover audiopipe links,
+// expired/stale entries) so the frontend won't be handed a broken link to play.
 async function findExistingTrialOrder(deviceId: string | undefined) {
   if (!deviceId) return null;
 
-  return prisma.order.findFirst({
+  const candidate = await prisma.order.findFirst({
     where: {
       deviceId,
       isFullVersion: false,
@@ -60,6 +63,8 @@ async function findExistingTrialOrder(deviceId: string | undefined) {
     },
     orderBy: { createdAt: 'desc' },
   });
+
+  return candidate && isPlayableAudioUrl(candidate.audioUrl) ? candidate : null;
 }
 
 export async function POST(request: NextRequest) {
@@ -95,10 +100,18 @@ export async function POST(request: NextRequest) {
 
     if (existingTrialOrder && existingTrialOrder.audioUrl) {
       console.log(`[${new Date().toISOString()}] Reusing existing trial order ${existingTrialOrder.id} for device: ${deviceId}`);
-      const isLocalFile = existingTrialOrder.audioUrl.startsWith('/') && !existingTrialOrder.audioUrl.startsWith('//');
+      // Match the fresh-generation path: return the remote CDN URL directly for <audio>,
+      // so mobile Safari plays the file instead of the streaming proxy (which can fail
+      // playback). Only fall back to /api/stream-audio for non-http/local-ish paths.
+      const audioUrl = existingTrialOrder.audioUrl;
+      const isLocalFile = audioUrl.startsWith('/') && !audioUrl.startsWith('//');
+      const isRemoteHttp = /^https?:\/\//i.test(audioUrl);
+      const audioUrlForFrontend = isLocalFile || isRemoteHttp
+        ? audioUrl
+        : `/api/stream-audio/${existingTrialOrder.id}`;
       return NextResponse.json({
         success: true,
-        audioUrl: isLocalFile ? existingTrialOrder.audioUrl : `/api/stream-audio/${existingTrialOrder.id}`,
+        audioUrl: audioUrlForFrontend,
         orderId: existingTrialOrder.id,
         isPreview: true,
         lyrics: existingTrialOrder.lyrics,
@@ -226,8 +239,11 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      const isDev = process.env.NODE_ENV === 'development';
-      const audioUrlForFrontend = isDev ? aiResponse.audioUrl : `/api/stream-audio/${order.id}`;
+      // Resolve the frontend audio URL (match reused-trial + order-status):
+      // remote http(s) URLs served directly so mobile Safari can play; only fall
+      // back to /api/stream-audio for non-http/local-ish paths.
+      const raw = aiResponse.audioUrl;
+      const audioUrlForFrontend = /^https?:\/\//i.test(raw) ? raw : `/api/stream-audio/${order.id}`;
       console.log(`[${new Date().toISOString()}] Trial successful for device: ${deviceId}, order: ${order.id}, audioUrl: ${audioUrlForFrontend}`);
 
       return NextResponse.json({

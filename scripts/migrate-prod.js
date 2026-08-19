@@ -12,7 +12,7 @@ const SCHEMA = {
     columns: [
       'id', 'recipientName', 'personality', 'genre', 'userEmail', 'customerEmail',
       'selectedStyle', 'selectedArtistStyle', 'songConfig', 'status',
-      'paddleTransactionId', 'aiRequestId', 'audioUrl', 'lyrics', 'title',
+      'paypalOrderId', 'aiRequestId', 'audioUrl', 'lyrics', 'title',
       'coverImageUrl', 'duration', 'isFullVersion', 'ipAddress', 'deviceId',
       'trialOrderId', 'createdAt', 'updatedAt'
     ],
@@ -27,7 +27,7 @@ const SCHEMA = {
       'selectedArtistStyle': 'TEXT',
       'songConfig': 'TEXT',
       'status': 'TEXT NOT NULL DEFAULT \'pending\'',
-      'paddleTransactionId': 'TEXT',
+      'paypalOrderId': 'TEXT',
       'aiRequestId': 'TEXT',
       'audioUrl': 'TEXT',
       'lyrics': 'TEXT',
@@ -42,7 +42,7 @@ const SCHEMA = {
       'updatedAt': 'TEXT NOT NULL',
     },
     indexes: [
-      'paddleTransactionId', 'aiRequestId', 'status', 'ipAddress', 'deviceId', 'trialOrderId'
+      'paypalOrderId', 'aiRequestId', 'status', 'ipAddress', 'deviceId', 'trialOrderId'
     ]
   },
   TrialUsage: {

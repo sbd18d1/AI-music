@@ -43,7 +43,7 @@ export default function TermsPage() {
             <div>
               <h2 className="text-xl font-semibold text-base-content mb-2">4. Subscriptions & Payments</h2>
               <p>
-                Our service is offered on a per-purchase basis. Each song generation is a separate purchase. Prices are listed on our website and may be updated at any time. Payments are processed through secure third-party payment providers (PayPal, Stripe, Paddle). All payments are final and non-refundable except as stated in our Refund Policy.
+                Our service is offered on a per-purchase basis. Each song generation is a separate purchase. Prices are listed on our website and may be updated at any time. Payments are processed through secure third-party payment providers (PayPal). All payments are final and non-refundable except as stated in our Refund Policy.
               </p>
             </div>
 
@@ -130,7 +130,7 @@ export default function TermsPage() {
             <div>
               <h2 className="text-xl font-semibold text-base-content mb-2">四、订阅与付款</h2>
               <p>
-                本服务按次购买提供。每次歌曲生成为独立的购买。价格在网站上列出，可能随时更新。付款通过安全的第三方支付提供商（PayPal、Stripe、Paddle）处理。除退款政策另有规定外，所有付款均为最终付款，不予退还。
+                本服务按次购买提供。每次歌曲生成为独立的购买。价格在网站上列出，可能随时更新。付款通过安全的第三方支付提供商（PayPal）处理。除退款政策另有规定外，所有付款均为最终付款，不予退还。
               </p>
             </div>
 
