@@ -31,16 +31,12 @@ export default function OrderStatus() {
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    let orderId = urlParams.get('order_id');
-
-    // Fallback: try sessionStorage (set by checkout.completed event)
-    if (!orderId || orderId === '{orderId}') {
-      orderId = sessionStorage.getItem('paddle_completed_order_id');
-      if (orderId) {
-        console.log('[order-status] Using orderId from sessionStorage:', orderId);
-        window.history.replaceState({}, '', `/order-status?order_id=${orderId}&provider=paddle`);
-      }
-    }
+    const orderId = urlParams.get('order_id');
+    // In the PayPal redirect flow, PayPal appends the PayPal Order ID as `token`
+    // when it returns to the return_url. Use it to capture the payment server-side
+    // (the backend then sets status=processing/success and starts song generation),
+    // so we don't depend on the webhook (which local/sandbox setups can't receive).
+    const paypalToken = urlParams.get('token');
 
     if (!orderId) {
       setError('No order ID found');
@@ -48,8 +44,21 @@ export default function OrderStatus() {
       return;
     }
 
-    // Step 1: Check current order status
     const initOrder = async () => {
+      // If we just came back from the PayPal approval page, capture the payment first.
+      if (paypalToken && paypalToken.length > 10) {
+        try {
+          console.log('[order-status] Capturing PayPal payment:', paypalToken.substring(0, 20) + '...');
+          await fetch('/api/paypal/capture-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId, paymentOrderId: paypalToken }),
+          });
+        } catch (captureErr) {
+          console.error('[order-status] PayPal capture failed:', captureErr);
+        }
+      }
+
       try {
         const response = await fetch(`/api/order-status?order_id=${orderId}`);
         const data = await response.json();
@@ -58,44 +67,14 @@ export default function OrderStatus() {
           const order = data.order;
           setOrder(order);
 
-          // If order is still pending, trigger fulfillment immediately
-          if (order.status === 'pending') {
-            console.log('[order-status] Order is pending, triggering fulfillment...');
-            const paddleTxId = sessionStorage.getItem('paddle_transaction_id') || undefined;
-            
-            try {
-              const fulfillRes = await fetch('/api/order-status', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId, paddleTransactionId: paddleTxId }),
-              });
-              const fulfillData = await fulfillRes.json();
-              console.log('[order-status] Fulfillment result:', fulfillData);
-              
-              // PUT returns { success, orderId, status } - refetch after fulfillment
-              if (fulfillData.success) {
-                // Refetch to get full order data
-                const refetchRes = await fetch(`/api/order-status?order_id=${orderId}`);
-                const refetchData = await refetchRes.json();
-                if (refetchData.success && refetchData.order) {
-                  setOrder(refetchData.order);
-                  if (refetchData.order.status !== 'pending' && refetchData.order.status !== 'processing') {
-                    setPolling(false);
-                    return;
-                  }
-                }
-              }
-            } catch (e) {
-              console.error('[order-status] Fulfillment failed:', e);
-            }
-          }
-
-          // Poll for status changes
           if (order.status === 'pending' || order.status === 'processing') {
             pollOrder(orderId);
           } else {
             setPolling(false);
           }
+        } else {
+          setError(data.error || 'Order not found');
+          setIsLoading(false);
         }
       } catch (err) {
         console.error('Failed to fetch order:', err);
@@ -235,7 +214,8 @@ export default function OrderStatus() {
             <h3 className="font-serif text-2xl font-bold text-deep-navy mb-2">AI is Creating Your Song</h3>
             <p className="text-deep-navy/70 text-lg">
               We're generating your personalized {order.genre} song for {order.recipientName}.
-              <br />This usually takes 1-2 minutes...
+              <br />This usually takes 1-2 minutes. Please keep this page open — it will
+              auto-update when your song is ready.
             </p>
           </div>
         );
@@ -447,7 +427,16 @@ export default function OrderStatus() {
   if (isLoading && !order) {
     return (
       <div className="min-h-screen bg-warm-cream flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-deep-navy animate-spin" />
+        <div className="text-center max-w-md px-4">
+          <Loader2 className="w-12 h-12 text-burgundy-wine animate-spin mx-auto mb-6" />
+          <h2 className="font-serif text-2xl font-bold text-deep-navy mb-2">
+            Confirming your payment…
+          </h2>
+          <p className="text-deep-navy/70 text-lg">
+            If you&apos;ve just paid via PayPal, this usually takes a few seconds.
+            Your song will start generating right after — please don&apos;t close this page.
+          </p>
+        </div>
       </div>
     );
   }

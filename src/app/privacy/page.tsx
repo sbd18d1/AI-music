@@ -23,7 +23,7 @@ export default function PrivacyPage() {
                 <li><strong>Device Information:</strong> We use browser fingerprinting to identify unique devices and prevent abuse of our free trial. This information is stored locally and associated with your trial/payment orders.</li>
                 <li><strong>Order Information:</strong> When you create a song, we collect the song description, recipient name, and genre preferences.</li>
                 <li><strong>Email Address:</strong> If you choose to receive your song via email, we collect your email address. This is optional and only used for song delivery.</li>
-                <li><strong>Payment Information:</strong> We do not store your payment card details. Payments are processed securely by PayPal, Stripe, and Paddle. We only receive payment status notifications from these providers.</li>
+                <li><strong>Payment Information:</strong> We do not store your payment card details. Payments are processed securely by PayPal. We only receive payment status notifications from these providers.</li>
               </ul>
             </div>
 
@@ -50,7 +50,7 @@ export default function PrivacyPage() {
               <h2 className="text-xl font-semibold text-base-content mb-2">4. Information Sharing</h2>
               <p>We do not sell or rent your personal information. We share information only with:</p>
               <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>Payment processors (PayPal, Stripe, Paddle) for transaction processing</li>
+                <li>Payment processors (PayPal) for transaction processing</li>
                 <li>Email service providers for song delivery</li>
                 <li>AI music generation providers (302.ai) for song creation — song descriptions are transmitted to generate your music</li>
                 <li>Legal authorities when required by law</li>
@@ -127,7 +127,7 @@ export default function PrivacyPage() {
                 <li><strong>设备信息：</strong>我们使用浏览器指纹识别来标识唯一设备，防止滥用免费试用。此信息本地存储并与您的试用/付款订单关联。</li>
                 <li><strong>订单信息：</strong>创建歌曲时，我们收集歌曲描述、收件人姓名和风格偏好。</li>
                 <li><strong>电子邮箱：</strong>如您选择通过邮件接收歌曲，我们会收集您的邮箱地址。此为可选项，仅用于歌曲交付。</li>
-                <li><strong>付款信息：</strong>我们不存储您的支付卡详情。付款由 PayPal、Stripe 和 Paddle 安全处理，我们仅接收这些提供商的付款状态通知。</li>
+                <li><strong>付款信息：</strong>我们不存储您的支付卡详情。付款由 PayPal 安全处理，我们仅接收这些提供商的付款状态通知。</li>
               </ul>
             </div>
 
@@ -154,7 +154,7 @@ export default function PrivacyPage() {
               <h2 className="text-xl font-semibold text-base-content mb-2">四、信息共享</h2>
               <p>我们不出售或出租您的个人信息。我们仅与以下方共享信息：</p>
               <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>付款处理商（PayPal、Stripe、Paddle）用于交易处理</li>
+                <li>付款处理商（PayPal）用于交易处理</li>
                 <li>电子邮件服务提供商用于歌曲交付</li>
                 <li>AI 音乐生成提供商（302.ai）用于歌曲创作——歌曲描述会被传输以生成音乐</li>
                 <li>法律机构在法律要求时</li>

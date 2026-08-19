@@ -485,10 +485,33 @@ export async function generateSong(
 }
 
 /**
+ * 判断一个音频 URL 是否可用于播放（具备基本可用性）。
+ *
+ * 用于在“快速返回已有成功订单”时校验 DB 里存的 audioUrl，
+ * 避免把不可播放的坏链接（例如 audiopipe 临时流式地址、空值）透传给前端，
+ * 从而触发重新生成而不是播放失败。
+ *
+ * 判定规则：
+ * - 必须是合法的 http(s) 绝对地址；
+ * - 排除 audiopipe 临时流式域名（通常不可长期访问）；
+ * - 排除被注释/占位的假 URL。
+ */
+export function isPlayableAudioUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  if (typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (trimmed.length === 0) return false;
+  if (!/^https?:\/\//i.test(trimmed)) return false;
+  // audiopipe 是 302/Suno 的临时流式地址，多不可持久访问，视为不可用
+  if (/audiopipe/i.test(trimmed)) return false;
+  return true;
+}
+
+/**
  * 轮询等待生成结果
- * 
+ *
  * 302.ai 的生成是异步的，提交请求后需要轮询直到任务完成或失败。
- * 
+ *
  * @param taskId 任务 ID
  * @returns 生成响应
  */

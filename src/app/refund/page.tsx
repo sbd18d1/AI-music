@@ -75,7 +75,7 @@ export default function RefundPage() {
             <div>
               <h2 className="text-xl font-semibold text-base-content mb-2">Refund Processing</h2>
               <p>
-                If your refund is approved, the refund will be processed to your original payment method (PayPal, credit card, or Paddle) within 5-10 business days. Please note that processing times may vary depending on your payment provider.
+                If your refund is approved, the refund will be processed to your original payment method (PayPal or credit card) within 5-10 business days. Please note that processing times may vary depending on your payment provider.
               </p>
             </div>
 
@@ -169,7 +169,7 @@ export default function RefundPage() {
             <div>
               <h2 className="text-xl font-semibold text-base-content mb-2">退款处理</h2>
               <p>
-                退款批准后，款项将在 5-10 个工作日内退回至您的原始付款方式（PayPal、信用卡或 Paddle）。具体到账时间可能因付款提供商而异。
+                退款批准后，款项将在 5-10 个工作日内退回至您的原始付款方式（PayPal 或信用卡）。具体到账时间可能因付款提供商而异。
               </p>
             </div>
 

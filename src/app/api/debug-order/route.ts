@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     authToken: process.env.TURSO_AUTH_TOKEN,
   });
   const rawResult = await libsqlClient.execute({
-    sql: 'SELECT id, status, "paddleTransactionId", "audioUrl" FROM "Order" WHERE id = ?',
+    sql: 'SELECT id, status, "paymentOrderId", "audioUrl" FROM "Order" WHERE id = ?',
     args: [orderId],
   });
   libsqlClient.close();
@@ -29,12 +29,12 @@ export async function GET(request: Request) {
   return NextResponse.json({
     prisma: {
       status: prismaOrder?.status,
-      paddleTxId: prismaOrder?.paddleTransactionId,
+      paymentOrderId: prismaOrder?.paymentOrderId,
       audioUrl: prismaOrder?.audioUrl?.substring(0, 60),
     },
     rawSql: {
       status: rawResult.rows[0]?.status,
-      paddleTxId: rawResult.rows[0]?.paddleTransactionId,
+      paymentOrderId: rawResult.rows[0]?.paymentOrderId,
       audioUrl: (rawResult.rows[0]?.audioUrl as string)?.substring(0, 60),
       rowCount: rawResult.rows.length,
     },

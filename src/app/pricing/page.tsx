@@ -47,7 +47,7 @@ export default function PricingPage() {
                     </li>
                   </ul>
                   <p className="mt-4 text-xs text-base-content/60">
-                    Payment: Credit Card, Apple Pay, Google Pay via Paddle
+                    Payment: PayPal or credit card
                   </p>
                 </div>
               </div>
@@ -126,7 +126,7 @@ export default function PricingPage() {
                     </li>
                   </ul>
                   <p className="mt-4 text-xs text-base-content/60">
-                    支付方式：信用卡、Apple Pay、Google Pay（通过 Paddle）
+                    支付方式：PayPal 或信用卡
                   </p>
                 </div>
               </div>

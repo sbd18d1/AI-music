@@ -81,7 +81,7 @@ export const OrderScalarFieldEnum = {
   selectedArtistStyle: 'selectedArtistStyle',
   songConfig: 'songConfig',
   status: 'status',
-  paddleTransactionId: 'paddleTransactionId',
+  paymentOrderId: 'paymentOrderId',
   aiRequestId: 'aiRequestId',
   audioUrl: 'audioUrl',
   lyrics: 'lyrics',
