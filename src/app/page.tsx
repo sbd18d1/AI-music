@@ -84,12 +84,12 @@ export default function Home() {
   const [hasUsedFreeTrial, setHasUsedFreeTrial] = useState(false);
 
   const [songConfig, setSongConfig] = useState<SongConfigSelection>(DEFAULT_SELECTION);
-  const [productPrice, setProductPrice] = useState<string>('$9.90');
+  const [productPrice, setProductPrice] = useState<string>('$1.00');
   const [priceLoading, setPriceLoading] = useState(false);
   
   const deliveryStrategy = getDeliveryStrategy();
 
-  // Price is fixed at $9.90 (matches /api/paypal/create-order PURCHASE_PRICE).
+  // Price is fixed at $1.00 (matches /api/paypal/create-order PURCHASE_PRICE).
   // No dynamic price fetching — PayPal shows the actual total in its checkout window.
 
   useEffect(() => {

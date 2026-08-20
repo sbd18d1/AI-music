@@ -20,7 +20,7 @@ const CreateOrderSchema = z.object({
 });
 
 // Price for the full song purchase (USD)
-const PURCHASE_PRICE = '9.90';
+const PURCHASE_PRICE = '1.00';
 const PURCHASE_CURRENCY = 'USD';
 
 interface PayPalConfig {
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
         ],
         application_context: {
           brand_name: 'AI Music Generator',
-          landing_page: 'LOGIN',
+          landing_page: 'BILLING',
           user_action: 'PAY_NOW',
           shipping_preference: 'NO_SHIPPING',
           return_url: `${appBaseUrl}/order-status?order_id=${orderId}&provider=paypal`,
