@@ -61,3 +61,8 @@ export type SongConfigDimension = Prisma.SongConfigDimensionModel
  * 
  */
 export type SongConfigOption = Prisma.SongConfigOptionModel
+/**
+ * Model Coupon
+ * 
+ */
+export type Coupon = Prisma.CouponModel

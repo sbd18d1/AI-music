@@ -402,11 +402,15 @@ export async function generateSong(
       
       log('API request failed:', errorMsg);
       
-      // 添加帮助提示
-      if (errorMsg.includes('Insufficient account balance') || errorMsg.includes('Create your own tool')) {
-        errorMsg += '\n\n请登录 302.ai 创建工具并使用工具的 API Key，而不是账户的 API Key。';
+      // 添加帮助提示：区分两种常见根因，避免误导。
+      // 1) 账户余额/配额不足 → 只提示去充值，别再提“创建工具”。
+      if (errorMsg.includes('Insufficient account balance') || errorMsg.includes('insufficient') || errorMsg.includes('balance')) {
+        errorMsg += '\n\n提示：302.ai 账户余额或配额不足，请登录 302.ai 充值后重试。';
+      } else if (errorMsg.includes('Create your own tool') || errorMsg.includes("tool's API Key")) {
+        // 2) 302.ai 明确要求“工具级 API Key”才提示去创建工具专属 key。
+        errorMsg += '\n\n请登录 302.ai 为生成工具创建专属的 API Key（工具级），而不是使用账户级 API Key。';
       }
-      
+
       return {
         success: false,
         error: errorMsg,

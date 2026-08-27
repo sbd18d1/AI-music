@@ -54,7 +54,8 @@ export const ModelName = {
   Order: 'Order',
   TrialUsage: 'TrialUsage',
   SongConfigDimension: 'SongConfigDimension',
-  SongConfigOption: 'SongConfigOption'
+  SongConfigOption: 'SongConfigOption',
+  Coupon: 'Coupon'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -92,6 +93,7 @@ export const OrderScalarFieldEnum = {
   ipAddress: 'ipAddress',
   deviceId: 'deviceId',
   trialOrderId: 'trialOrderId',
+  couponCode: 'couponCode',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -139,6 +141,25 @@ export const SongConfigOptionScalarFieldEnum = {
 } as const
 
 export type SongConfigOptionScalarFieldEnum = (typeof SongConfigOptionScalarFieldEnum)[keyof typeof SongConfigOptionScalarFieldEnum]
+
+
+export const CouponScalarFieldEnum = {
+  id: 'id',
+  code: 'code',
+  value: 'value',
+  currency: 'currency',
+  issuedByOrderId: 'issuedByOrderId',
+  issuedByDeviceId: 'issuedByDeviceId',
+  issuedAt: 'issuedAt',
+  used: 'used',
+  usedByDeviceId: 'usedByDeviceId',
+  usedIp: 'usedIp',
+  usedAt: 'usedAt',
+  usedForOrderId: 'usedForOrderId',
+  createdAt: 'createdAt'
+} as const
+
+export type CouponScalarFieldEnum = (typeof CouponScalarFieldEnum)[keyof typeof CouponScalarFieldEnum]
 
 
 export const SortOrder = {

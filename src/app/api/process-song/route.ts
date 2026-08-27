@@ -53,11 +53,14 @@ export async function POST(request: NextRequest) {
       const streamUrl = `/api/stream-audio/${order.id}`;
 
       if (order.userEmail) {
-        await sendSongEmail({
+        const sendResult = await sendSongEmail({
           email: order.userEmail,
           recipientName: order.recipientName,
           audioUrl: streamUrl,
         });
+        if (!sendResult.ok) {
+          console.error(`[${new Date().toISOString()}] process-song email FAILED to ${order.userEmail}: ${sendResult.error}`);
+        }
       }
 
       return NextResponse.json({ success: true });

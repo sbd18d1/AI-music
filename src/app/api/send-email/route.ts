@@ -24,13 +24,18 @@ export async function POST(request: NextRequest) {
 
     const { email, audioUrl, title, lyrics } = validation.data;
 
-    await sendSongEmail({
+    const sendResult = await sendSongEmail({
       email,
       recipientName: 'You',
       audioUrl,
       title,
       lyrics,
     });
+
+    if (!sendResult.ok) {
+      console.error(`[${new Date().toISOString()}] Email FAILED to ${email}: ${sendResult.error}`);
+      return NextResponse.json({ success: false, error: sendResult.error || 'Email send failed' }, { status: 500 });
+    }
 
     console.log(`[${new Date().toISOString()}] Email sent successfully to: ${email}`);
 

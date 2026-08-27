@@ -11,3 +11,6 @@ public/audio/*.mp3
 scripts/check-*.ts
 test-song-data.json
 src/generated/prisma/
+.vercel
+.env*
+.vercel-pulled.env

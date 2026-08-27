@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await sendSongEmail({
+    const sendResult = await sendSongEmail({
       email,
       recipientName,
       audioUrl,
@@ -21,6 +21,14 @@ export async function POST(request: NextRequest) {
       lyrics,
       orderId,
     });
+
+    if (!sendResult.ok) {
+      console.error(`[${new Date().toISOString()}] Test email FAILED to ${email}: ${sendResult.error}`);
+      return NextResponse.json(
+        { error: `Email send failed: ${sendResult.error}` },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

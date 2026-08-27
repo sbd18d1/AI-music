@@ -1,7 +1,10 @@
 'use client';
 
-import { Music, Clock, ArrowLeft } from 'lucide-react';
+import { useState } from 'react';
+import { Music, Clock, ArrowLeft, Share2 } from 'lucide-react';
 import VintageAudioPlayer from '@/components/VintageAudioPlayer';
+import ShareModal from '@/components/ShareModal';
+import { openNativeShare, type SharePayload } from '@/lib/share';
 
 interface SongData {
   id: string;
@@ -16,6 +19,22 @@ interface SongData {
 }
 
 export default function SongPageClient({ songData }: { songData: SongData }) {
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sharePayload, setSharePayload] = useState<SharePayload>({ url: '', title: '', text: '' });
+
+  const handleShare = async () => {
+    const payload: SharePayload = {
+      url: `${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/song/${songData.id}`,
+      title: `🎵 ${songData.title} — a custom song made on Smart Music Lab`,
+      text: `Listen to this special song for ${songData.recipientName}! Made with love on Smart Music Lab.`,
+    };
+    const usedNative = await openNativeShare(payload);
+    if (!usedNative) {
+      setSharePayload(payload);
+      setShareOpen(true);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-base-100">
       <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
@@ -46,6 +65,14 @@ export default function SongPageClient({ songData }: { songData: SongData }) {
                 </span>
               )}
             </div>
+
+            {/* CTA: invite new visitors to try making their own song */}
+            <a
+              href="/?utm_source=share"
+              className="mt-6 inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold py-3 px-8 rounded-xl border-2 border-base-content shadow-sm hover:shadow-md transition-all text-lg"
+            >
+              🎵 Make Your Own Song — Try It Free
+            </a>
           </div>
 
           <div className="flex justify-center mb-8">
@@ -90,23 +117,15 @@ export default function SongPageClient({ songData }: { songData: SongData }) {
               <p className="text-base-content/80 text-lg mb-4">
                 Share this special song with your loved ones!
               </p>
-              <div className="flex justify-center gap-4">
-                <a
-                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(process.env.NEXT_PUBLIC_URL || 'http://localhost:3000')}/song/${songData.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-xl border-2 border-base-content shadow-sm hover:shadow-md transition-all"
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold py-2.5 px-7 rounded-xl border-2 border-base-content shadow-sm hover:shadow-md transition-all text-base"
                 >
-                  Share on Facebook
-                </a>
-                <a
-                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Listen to this special song for ${songData.recipientName}!`)})&url=${encodeURIComponent(process.env.NEXT_PUBLIC_URL || 'http://localhost:3000')}/song/${songData.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-6 rounded-xl border-2 border-base-content shadow-sm hover:shadow-md transition-all"
-                >
-                  Share on Twitter
-                </a>
+                  <Share2 className="w-5 h-5" />
+                  Share to Friends
+                </button>
               </div>
             </div>
           </div>
@@ -116,8 +135,26 @@ export default function SongPageClient({ songData }: { songData: SongData }) {
               🔒 100% Personal Copyright: This song belongs to you. Share it with family and friends!
             </p>
           </div>
+
+          <div className="mt-8 pt-8 border-t-2 border-base-300/20 text-center">
+            <p className="text-base-content/80 text-lg mb-4">
+              Loved this song? Create a personalized one for someone special.
+            </p>
+            <a
+              href="/?utm_source=share_bottom"
+              className="inline-flex items-center gap-2 bg-base-200 hover:bg-base-300 border-2 border-base-content text-base-content font-bold py-3 px-8 rounded-xl transition-colors text-lg"
+            >
+              ✨ Start Your Own Song — Free Preview
+            </a>
+          </div>
         </div>
       </div>
+
+      <ShareModal
+        isOpen={shareOpen}
+        onClose={() => setShareOpen(false)}
+        payload={sharePayload}
+      />
     </div>
   );
 }

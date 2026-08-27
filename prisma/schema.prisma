@@ -29,6 +29,7 @@ model Order {
   ipAddress          String?
   deviceId           String?
   trialOrderId       String?
+  couponCode         String?   // internal code of the coupon auto-applied to this order (audit)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -84,4 +85,28 @@ model SongConfigOption {
   @@index([dimensionId])
   @@index([optionId])
   @@index([sortOrder])
+}
+
+// One-time free-song coupon. A user earns one per paid order by sharing their
+// completed song; it fully covers one brand-new full song (bypassing PayPal).
+// Single-use: `used` flips atomically on redeem and the consuming browser
+// fingerprint + IP + timestamp are recorded for anti-replay auditing.
+model Coupon {
+  id              String    @id @default(uuid())
+  code            String    @unique            // user-facing redemption code, e.g. "SHARE-XXXXXX"
+  value           Float     @default(1.00)     // face value = one full song's price
+  currency        String    @default("USD")
+  issuedByOrderId String?                       // the paid order whose share earned this coupon
+  issuedByDeviceId String?                      // fingerprint that claimed the coupon
+  issuedAt        DateTime  @default(now())
+  used            Boolean   @default(false)
+  usedByDeviceId  String?                       // fingerprint that redeemed it
+  usedIp          String?
+  usedAt          DateTime?
+  usedForOrderId  String?                       // the order the coupon paid for
+  createdAt       DateTime  @default(now())
+
+  @@index([issuedByOrderId])
+  @@index([issuedByDeviceId])
+  @@index([used])
 }

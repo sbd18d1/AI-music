@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Sparkles, Music, Heart, Zap, CreditCard, Loader2, Check, Rocket, Lock, ArrowRight, Download, Mail, RefreshCw } from 'lucide-react';
+import { Sparkles, Music, Heart, Zap, CreditCard, Loader2, Check, Rocket, Lock, ArrowRight, Download, Mail, RefreshCw, Share2 } from 'lucide-react';
 import { getDeliveryStrategy, DELIVERY_MODE, type DeliveryStrategy, type DeviceSession } from '@/lib/deliveryStrategy';
 import SongConfigPanel from '@/components/SongConfigPanel';
 import VintageAudioPlayer from '@/components/VintageAudioPlayer';
+import ShareModal from '@/components/ShareModal';
 import { DEFAULT_SELECTION, isSelectionComplete, deriveGenreFromConfig, type SongConfigSelection } from '@/lib/song-config';
 import { getDeviceId } from '@/lib/device-id';
+import { canUseNativeShare, openNativeShare, type SharePayload } from '@/lib/share';
 
 type Style = 'Classic Rock' | 'Country & Folk' | 'Blues & Soul' | '60s/70s Pop Ballad';
 type ArtistStyle = 'None' | 'Frank Sinatra' | 'Elvis Presley' | 'The Beatles' | 'The Rolling Stones' | 'Bob Dylan' | 'Simon & Garfunkel' | 'Aretha Franklin' | 'Neil Diamond' | 'Johnny Cash';
@@ -86,10 +88,20 @@ export default function Home() {
   const [songConfig, setSongConfig] = useState<SongConfigSelection>(DEFAULT_SELECTION);
   const [productPrice, setProductPrice] = useState<string>('$1.00');
   const [priceLoading, setPriceLoading] = useState(false);
-  
+
+  // Coupon (fingerprint-bound) states — no user-facing code, no manual redemption.
+  const [couponEarned, setCouponEarned] = useState(false); // shown as "you earned $2 off" toast
+
+  // Share (native sheet / modal) state
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sharePayload, setSharePayload] = useState<SharePayload>({ url: '', title: '', text: '' });
+
+
+
   const deliveryStrategy = getDeliveryStrategy();
 
   // Price is fixed at $1.00 (matches /api/paypal/create-order PURCHASE_PRICE).
+  // A fingerprint-bound $0.50 coupon, when available, auto-deducts to $0.50 at checkout.
   // No dynamic price fetching — PayPal shows the actual total in its checkout window.
 
   useEffect(() => {
@@ -355,14 +367,17 @@ export default function Home() {
   // capture, reuse the already-generated preview song when paying for the full version).
 
   // Build payload for "Get Full Song" — reuses the preview song (trialOrderId passed).
+  // personality is intentionally left EMPTY: the backend backfills it from the trial
+  // order's stored description. This keeps unlocking the already-generated preview
+  // independent of the (possibly cleared) description textbox. For a brand-new song,
+  // buildBuyNewSongPayload sends the real description instead.
   const buildBuyFullVersionPayload = useCallback((): Record<string, unknown> => {
-    const personality = (formData.description || '').trim().slice(0, 900);
     const genre = deriveGenreFromConfig(songConfig);
     const trialOrderId = orderId || localStorage.getItem('trial_order_id') || undefined;
 
     const payload: Record<string, unknown> = {
       recipientName: 'Gift Recipient',
-      personality,
+      personality: '',
       genre,
       selectedStyle: genre,
       selectedArtistStyle: 'None',
@@ -377,7 +392,7 @@ export default function Home() {
 
     payload.songConfig = songConfig;
     return payload;
-  }, [formData, songConfig, orderId, userEmail]);
+  }, [songConfig, orderId, userEmail]);
 
   // Build payload for "Generate a Brand New Song" — no trialOrderId, fresh generation after payment.
   const buildBuyNewSongPayload = useCallback((): Record<string, unknown> => {
@@ -412,14 +427,21 @@ export default function Home() {
     setIsPaying(true);
     try {
       console.log('[PayPal] Creating order...');
+      // Attach the browser fingerprint so the backend can auto-apply the user's
+      // fingerprint-bound coupon (if any) and discount the price.
+      const deviceId = await getDeviceId();
       const response = await fetch('/api/paypal/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildPayload()),
+        body: JSON.stringify({ ...buildPayload(), deviceId }),
       });
       const data = await response.json();
       // Redirect to PayPal immediately — no "generating" text before payment.
       if (data.success && data.links) {
+        // Surface an applied coupon discount before leaving for PayPal.
+        if (data.couponApplied) {
+          console.log('[PayPal] Coupon applied, amount paid:', data.amountPaid);
+        }
         const approvalLink = data.links.find((link: { rel: string }) => link.rel === 'approve');
         if (approvalLink) {
           window.location.href = approvalLink.href;
@@ -437,12 +459,17 @@ export default function Home() {
   }, [isPaying]);
 
   const handleBuyFullVersion = useCallback(() => {
-    if (!formData.description || !formData.description.trim()) {
-      alert('Please fill in the description first');
+    // "Get Full Song" unlocks the ALREADY-GENERATED preview song (reusing its
+    // trial order) — it does NOT depend on the description textbox. Only require
+    // that a generated song actually exists; the backend uses trialOrderId to
+    // serve the current preview without regenerating.
+    const hasGeneratedSong = !!orderId || !!localStorage.getItem('trial_order_id');
+    if (!hasGeneratedSong) {
+      alert('No song to unlock yet. Please generate a preview song first.');
       return;
     }
     handlePayPalRedirect(buildBuyFullVersionPayload);
-  }, [formData.description, handlePayPalRedirect, buildBuyFullVersionPayload]);
+  }, [orderId, handlePayPalRedirect, buildBuyFullVersionPayload]);
 
   const handleBuyNewSong = useCallback(() => {
     if (!formData.description || !formData.description.trim()) {
@@ -451,6 +478,44 @@ export default function Home() {
     }
     handlePayPalRedirect(buildBuyNewSongPayload);
   }, [formData.description, handlePayPalRedirect, buildBuyNewSongPayload]);
+
+  // ===== Coupon (free-song) flow =====
+  // Sharing after unlocking a paid full song earns the user a fingerprint-bound $2
+  // coupon ("first share"). It is auto-applied on their NEXT purchase server-side —
+  // no code is ever shown or entered. Idempotent: we only surface the "earned" toast.
+  const handleIssueCoupon = useCallback(async () => {
+    try {
+      const deviceId = await getDeviceId();
+      const response = await fetch('/api/coupon/issue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setCouponEarned(true); // show "you earned $0.50 off your next song"
+      } else {
+        console.warn('[coupon] issue returned:', data);
+      }
+    } catch (err) {
+      console.error('[coupon] issue error:', err);
+    }
+  }, []);
+
+  // Unified share: try the OS native share sheet first (mobile — lets the user pick
+  // Facebook/WhatsApp/Messages/etc.), and fall back to an in-app platform modal on
+  // desktop where navigator.share isn't available. Awarding the coupon fires whenever
+  // the user actually completes/makes a share choice.
+  const handleOpenShare = useCallback((payload: SharePayload) => {
+    openNativeShare(payload).then((usedNative) => {
+      if (!usedNative) {
+        setSharePayload(payload);
+        setShareOpen(true);
+      } else {
+        handleIssueCoupon();
+      }
+    });
+  }, [handleIssueCoupon]);
 
   // "Generate a brand new song" from the trial results area: scroll back to the
   // always-visible description form so the user can revise their prompt, then pay
@@ -686,6 +751,12 @@ export default function Home() {
                 <p className="text-center text-base-content/60 text-sm mt-1">
                   Full song with MP3 download. One-time payment.
                 </p>
+
+                {couponEarned && (
+                  <div className="mt-4 border-2 border-success bg-success/10 rounded-lg p-3 text-center">
+                    <p className="font-semibold text-success">🎉 You earned $0.50 off! Applied automatically at checkout.</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -784,35 +855,34 @@ export default function Home() {
                   {orderId && paymentComplete && (
                     <div className="bg-base-200/80 border border-base-300 rounded-xl p-6">
                       <h4 className="font-serif text-xl font-bold text-base-content mb-4 text-center">🔗 Share This Song</h4>
-                      <div className="flex justify-center gap-4">
-                        <a
-                          href={`${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/song/${orderId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="bg-primary hover:bg-primary/90 text-white font-bold py-3 px-6 rounded-xl border-2 border-base-content shadow-sm transition-all text-lg"
+                      <div className="flex justify-center">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleOpenShare({
+                              url: `${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/song/${orderId}`,
+                              title: `🎵 ${songTitle || 'A custom song'} — made on Smart Music Lab`,
+                              text: `Listen to this special song for ${songTitle || 'someone special'}! Made with love on Smart Music Lab.`,
+                            })
+                          }
+                          className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold py-3 px-8 rounded-xl border-2 border-base-content shadow-sm transition-all text-lg"
                         >
-                          📤 Share Link
-                        </a>
-                        <a
-                          href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(process.env.NEXT_PUBLIC_URL || 'http://localhost:3000')}/song/${orderId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl border-2 border-blue-800 shadow-md transition-all text-lg"
-                        >
-                          📘 Facebook
-                        </a>
-                        <a
-                          href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Listen to this special song for ${songTitle || 'someone special'}!`)})&url=${encodeURIComponent(process.env.NEXT_PUBLIC_URL || 'http://localhost:3000')}/song/${orderId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-6 rounded-xl border-2 border-sky-700 shadow-md transition-all text-lg"
-                        >
-                          🐦 Twitter
-                        </a>
+                          <Share2 className="w-5 h-5" />
+                          Share to Friends
+                        </button>
                       </div>
                       <p className="text-center text-base-content/60 text-lg mt-4">
-                        Share your unique song with friends and family!
+                        Share via Messages, Facebook, WhatsApp &amp; more — share and earn $0.50 off your next song!
                       </p>
+
+                      {couponEarned && (
+                        <div className="mt-6 border-2 border-success bg-success/10 rounded-xl p-4 text-center">
+                          <p className="font-serif text-xl font-bold text-success">🎉 You earned $0.50 off!</p>
+                          <p className="text-base-content/70 text-sm">
+                            Applied automatically to your next song.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -893,6 +963,15 @@ export default function Home() {
           </div>
         </footer>
       </div>
+
+      {/* Share modal (desktop fallback when the OS native sheet isn't available) */}
+      <ShareModal
+        isOpen={shareOpen}
+        onClose={() => setShareOpen(false)}
+        payload={sharePayload}
+        onShared={handleIssueCoupon}
+      />
+
 
       <style>{`
         .lyrics-container {

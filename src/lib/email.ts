@@ -23,9 +23,14 @@ interface SendSongEmailParams {
   orderId?: string;
 }
 
+export interface SendSongEmailResult {
+  ok: boolean;
+  error?: string;
+}
+
 export async function sendSongEmail(
   params: SendSongEmailParams
-): Promise<void> {
+): Promise<SendSongEmailResult> {
   const { email, recipientName, audioUrl, title, lyrics, orderId } = params;
   const songTitle = title || `${recipientName}'s Song`;
   const safeFilename = songTitle.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 100) || 'song';
@@ -214,11 +219,14 @@ export async function sendSongEmail(
     });
     if (result.error) {
       console.error(`[${new Date().toISOString()}] Resend API error for ${email}:`, JSON.stringify(result.error, null, 2));
-      throw new Error(`Resend API error: ${result.error.message}`);
+      return { ok: false, error: result.error.message };
     }
 
     console.log(`[${new Date().toISOString()}] Email sent successfully to: ${email}, id: ${result.data?.id}`);
+    return { ok: true };
   } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
     console.error(`[${new Date().toISOString()}] Failed to send email to ${email}:`, error);
+    return { ok: false, error: msg };
   }
 }

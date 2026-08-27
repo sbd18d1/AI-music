@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/db/client';
 import { z } from 'zod';
+import { ensureCouponTable, ensureOrderCouponColumn } from '@/lib/ensure-coupon-table';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -8,19 +9,24 @@ export const maxDuration = 60;
 
 const CreateOrderSchema = z.object({
   recipientName: z.string().min(1).max(100),
-  // Always validate the user's description before any paid song starts generating —
-  // empty/whitespace must be rejected, not defaulted to a placeholder.
-  personality: z.string().trim().min(1).max(1000),
+  // Waiting list: a user may unlock the already-generated preview song ("Get Full
+  // Song") with an EMPTY description box. When trialOrderId is present we backfill
+  // personality from the trial order's stored description. For a brand-new song
+  // (no trialOrderId) a non-empty personality is required (enforced in the handler).
+  personality: z.string().trim().max(1000).optional().or(z.literal('')),
   genre: z.string().min(1).max(100),
   selectedStyle: z.string().optional(),
   selectedArtistStyle: z.string().optional(),
   userEmail: z.string().email().optional(),
   songConfig: z.any().optional(),
   trialOrderId: z.string().optional(),
+  deviceId: z.string().max(200).optional(), // browser fingerprint (getDeviceId) — coupon owner
 });
 
-// Price for the full song purchase (USD)
+// Base price for the full song purchase (USD)
 const PURCHASE_PRICE = '1.00';
+// Coupon deduction per order (a fingerprint-bound coupon automatically subtracts this).
+const COUPON_VALUE = 0.5;
 const PURCHASE_CURRENCY = 'USD';
 
 interface PayPalConfig {
@@ -72,14 +78,16 @@ export async function POST(request: NextRequest) {
       userEmail,
       songConfig,
       trialOrderId,
+      deviceId,
     } = result.data;
 
     const orderId = crypto.randomUUID();
 
-    console.log(`${reqId} START orderId=${orderId} email=${userEmail || 'N/A'} trialOrderId=${trialOrderId || 'N/A'}`);
+    console.log(`${reqId} START orderId=${orderId} email=${userEmail || 'N/A'} trialOrderId=${trialOrderId || 'N/A'} deviceId=${deviceId ? deviceId.slice(0, 12) + '…' : 'N/A'}`);
 
     // If trialOrderId is provided, verify it exists and copy song data from the trial order
     let trialOrderData: {
+      personality: string | null;
       audioUrl: string | null;
       lyrics: string | null;
       title: string | null;
@@ -101,6 +109,9 @@ export async function POST(request: NextRequest) {
         trialOrder.audioUrl
       ) {
         trialOrderData = {
+          // Backfill personality with the description the preview was generated from, so
+          // "Get Full Song" works even when the user has cleared the description box.
+          personality: trialOrder.personality,
           audioUrl: trialOrder.audioUrl,
           lyrics: trialOrder.lyrics,
           title: trialOrder.title,
@@ -115,11 +126,49 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Resolve the description for this paid order:
+    // - "Get Full Song" unlocks the already-generated preview: the user may have
+    //   cleared the description box, so backfill from the trial order's stored
+    //   description (the one the preview was actually generated from).
+    // - A brand-new song, on the other hand, REQUIRES a real description — reject
+    //   rather than silently defaulting to a placeholder.
+    const resolvedPersonality =
+      (personality || '').trim() ||
+      trialOrderData?.personality?.trim() ||
+      '';
+    if (!resolvedPersonality) {
+      console.warn(`${reqId} Rejecting: no description and no reusable trial order`);
+      return NextResponse.json(
+        { success: false, error: 'Invalid input: a description is required to generate a song.' },
+        { status: 400 }
+      );
+    }
+
+    // Determine automatic coupon deduction: an unused coupon bound to this device's
+    // fingerprint reduces the price by COUPON_VALUE. Marks used only on payment success
+    // (capture/webhook), so an abandoned checkout doesn't waste the coupon.
+    await ensureCouponTable();
+    await ensureOrderCouponColumn();
+    let appliedCouponValue = 0;
+    let couponCodeForOrder: string | null = null;
+    if (deviceId) {
+      const unused = await prisma.coupon.findFirst({
+        where: { issuedByDeviceId: deviceId, used: false },
+      });
+      if (unused) {
+        appliedCouponValue = Number(unused.value) || COUPON_VALUE;
+        couponCodeForOrder = unused.code;
+        console.log(`${reqId} Applying coupon code=${unused.code} (-$${appliedCouponValue.toFixed(2)}) for deviceId=${deviceId.slice(0, 12)}…`);
+      }
+    }
+    const basePrice = parseFloat(PURCHASE_PRICE);
+    const payAmount = Math.max(0, basePrice - appliedCouponValue).toFixed(2);
+
     await prisma.order.create({
       data: {
         id: orderId,
         recipientName,
-        personality: personality || '',
+        personality: resolvedPersonality,
         genre,
         selectedStyle,
         selectedArtistStyle,
@@ -129,7 +178,8 @@ export async function POST(request: NextRequest) {
         isFullVersion: true,
         trialOrderId: trialOrderId || null,
         ipAddress: trialOrderData?.ipAddress || null,
-        deviceId: trialOrderData?.deviceId || null,
+        deviceId: deviceId || trialOrderData?.deviceId || null,
+        couponCode: couponCodeForOrder || null,
         audioUrl: trialOrderData?.audioUrl || null,
         lyrics: trialOrderData?.lyrics || null,
         title: trialOrderData?.title || null,
@@ -189,11 +239,11 @@ export async function POST(request: NextRequest) {
           {
             amount: {
               currency_code: PURCHASE_CURRENCY,
-              value: PURCHASE_PRICE,
+              value: payAmount,
               breakdown: {
                 item_total: {
                   currency_code: PURCHASE_CURRENCY,
-                  value: PURCHASE_PRICE,
+                  value: payAmount,
                 },
               },
             },
@@ -206,7 +256,7 @@ export async function POST(request: NextRequest) {
                 quantity: '1',
                 unit_amount: {
                   currency_code: PURCHASE_CURRENCY,
-                  value: PURCHASE_PRICE,
+                  value: payAmount,
                 },
               },
             ],
@@ -249,6 +299,11 @@ export async function POST(request: NextRequest) {
       // decoupled from any specific payment provider.
       paymentOrderId: orderData.id,
       links: orderData.links,
+      // Pricing/coupon info so the frontend can surface "you saved $X".
+      amountPaid: payAmount,
+      basePrice: basePrice.toFixed(2),
+      couponApplied: appliedCouponValue > 0,
+      couponValue: appliedCouponValue > 0 ? appliedCouponValue.toFixed(2) : null,
     });
   } catch (error) {
     console.error(`${reqId} PayPal create-order exception:`, error);

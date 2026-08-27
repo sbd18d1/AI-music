@@ -2,9 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/db/client';
 import { generateSong } from '@/lib/ai-music';
 import { sendSongEmail } from '@/lib/email';
+import { consumeCouponForOrder } from '@/lib/coupon-use';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
+
+function getClientIp(request: NextRequest): string {
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  if (forwardedFor) return forwardedFor.split(',')[0].trim();
+  const realIp = request.headers.get('x-real-ip');
+  if (realIp) return realIp;
+  return request.ip || 'unknown';
+}
 export const maxDuration = 300;
 
 interface PayPalConfig {
@@ -208,20 +217,21 @@ export async function POST(request: NextRequest) {
           },
         });
 
+        // Voucher (if any auto-applied at checkout) is now earned — void it.
+        const voided = await consumeCouponForOrder(orderId, order.couponCode, order.deviceId, getClientIp(request));
+        if (voided > 0) console.log(`${reqId} Coupon consumed for orderId=${orderId}`);
+
         const emailForDelivery = customerEmail || order.customerEmail;
         if (emailForDelivery) {
-          try {
-            await sendSongEmail({
-              email: emailForDelivery,
-              recipientName: order.recipientName,
-              audioUrl: trialSong.audioUrl,
-              title: trialSong.title || undefined,
-              lyrics: trialSong.lyrics || undefined,
-              orderId,
-            });
-          } catch (e) {
-            console.error(`${reqId} Email send failed:`, e);
-          }
+          const sendResult = await sendSongEmail({
+            email: emailForDelivery,
+            recipientName: order.recipientName,
+            audioUrl: trialSong.audioUrl,
+            title: trialSong.title || undefined,
+            lyrics: trialSong.lyrics || undefined,
+            orderId,
+          });
+          if (!sendResult.ok) console.error(`${reqId} Email FAILED to ${emailForDelivery}: ${sendResult.error}`);
         }
         console.log(`${reqId} Order ${orderId} fulfilled via trial`);
         return NextResponse.json({ status: 'success' });
@@ -274,22 +284,23 @@ export async function POST(request: NextRequest) {
               aiRequestId: result.requestId || null,
             },
           });
+
+          // Voucher (if any auto-applied at checkout) is now earned — void it.
+          const voided = await consumeCouponForOrder(orderId, order.couponCode, order.deviceId, getClientIp(request));
+          if (voided > 0) console.log(`${reqId} Coupon consumed for orderId=${orderId}`);
           console.log(`${reqId} Order ${orderId} generated`);
 
           const emailForDelivery = customerEmail || order.customerEmail;
           if (emailForDelivery) {
-            try {
-              await sendSongEmail({
-                email: emailForDelivery,
-                recipientName: order.recipientName,
-                audioUrl: result.audioUrl,
-                title: result.title,
-                lyrics: result.lyrics,
-                orderId,
-              });
-            } catch (e) {
-              console.error(`${reqId} Email failed:`, e);
-            }
+            const sendResult = await sendSongEmail({
+              email: emailForDelivery,
+              recipientName: order.recipientName,
+              audioUrl: result.audioUrl,
+              title: result.title,
+              lyrics: result.lyrics,
+              orderId,
+            });
+            if (!sendResult.ok) console.error(`${reqId} Email FAILED to ${emailForDelivery}: ${sendResult.error}`);
           }
         } else {
           // True submission failure — nothing to poll.
