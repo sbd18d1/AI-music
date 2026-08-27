@@ -1,0 +1,234 @@
+{
+  "genre": {
+    "title": "Music Style & Genre",
+    "options": [
+      {
+        "optionId": "classic_country",
+        "name": "Classic Country & Folk",
+        "description": "Warm storytelling with acoustic guitar & pedal steel",
+        "styleTag": "1970s acoustic country folk, warm analog sound, pedal steel guitar, gentle fingerpicked rhythm, storytelling tempo",
+        "lyricInstruction": null,
+        "keywords": null,
+        "genreValue": "Country"
+      },
+      {
+        "optionId": "classic_rock",
+        "name": "1970s Classic Rock",
+        "description": "Smooth vintage rock with electric guitar & organs",
+        "styleTag": "1970s classic soft rock, warm hammond organ, smooth electric guitar, solid drums, nostalgic rock feel",
+        "lyricInstruction": null,
+        "keywords": null,
+        "genreValue": "Rock"
+      },
+      {
+        "optionId": "vintage_pop_ballad",
+        "name": "60s/70s Pop Ballad",
+        "description": "Sweet nostalgic melody with grand piano & strings",
+        "styleTag": "1960s 1970s vintage pop ballad, acoustic grand piano, warm lush string section, smooth melody",
+        "lyricInstruction": null,
+        "keywords": null,
+        "genreValue": "Pop"
+      },
+      {
+        "optionId": "gospel_soul",
+        "name": "Warm Gospel & Soul",
+        "description": "Uplifting emotional faith & heart-filled rhythm",
+        "styleTag": "gospel soul, warm organ padding, rhythmic tambourine, uplifting vocal harmonies, spiritual emotional vibe",
+        "lyricInstruction": null,
+        "keywords": null,
+        "genreValue": "Gospel"
+      },
+      {
+        "optionId": "jazz_crooner_swing",
+        "name": "Vintage Jazz & Swing",
+        "description": "Classy, relaxed big band or jazz trio",
+        "styleTag": "vintage jazz trio, subtle brush drums, walking bass line, warm brass section, elegant smooth swing tempo",
+        "lyricInstruction": null,
+        "keywords": null,
+        "genreValue": "Jazz"
+      },
+      {
+        "optionId": "upbeat_rockabilly",
+        "name": "50s Rock & Roll / Rockabilly",
+        "description": "Fun, high-energy danceable retro beat",
+        "styleTag": "1950s rockabilly, slapback bass, energetic vintage electric guitar, upbeat danceable rock and roll drum beat",
+        "lyricInstruction": null,
+        "keywords": null,
+        "genreValue": "Rock & Roll"
+      }
+    ]
+  },
+  "vocalCharacter": {
+    "title": "Vocal Type",
+    "options": [
+      {
+        "optionId": "warm_baritone_male",
+        "name": "Deep & Warm Male Vocal",
+        "description": "Rich, resonant classic male tone",
+        "styleTag": "deep resonant baritone male vocal, warm conversational tone, sincere storytelling delivery",
+        "lyricInstruction": null,
+        "keywords": null,
+        "genreValue": null
+      },
+      {
+        "optionId": "sweet_vintage_female",
+        "name": "Sweet & Clear Female Vocal",
+        "description": "Angelic, smooth vintage female tone",
+        "styleTag": "sweet vintage female vocal, high clear tone, soft vibrato, comforting gentle delivery",
+        "lyricInstruction": null,
+        "keywords": null,
+        "genreValue": null
+      },
+      {
+        "optionId": "smooth_crooner_male",
+        "name": "Smooth Velvet Male Crooner",
+        "description": "Romantic 1950s style male singer",
+        "styleTag": "velvet smooth male crooner, rich vocal vibrato, romantic tone, intimate microphone distance",
+        "lyricInstruction": null,
+        "keywords": null,
+        "genreValue": null
+      },
+      {
+        "optionId": "harmonious_duet",
+        "name": "Male & Female Duet",
+        "description": "Blended male & female harmonies",
+        "styleTag": "male and female vocal duet, blended vocal harmonies, emotional back and forth singing",
+        "lyricInstruction": null,
+        "keywords": null,
+        "genreValue": null
+      },
+      {
+        "optionId": "children_choir",
+        "name": "Sweet Kids / Grandkids Choir",
+        "description": "Innocent, cheerful children singing",
+        "styleTag": "innocent children choir, cute playful vocals, sweet group singing, joyful uplifting kid voices",
+        "lyricInstruction": null,
+        "keywords": null,
+        "genreValue": null
+      }
+    ]
+  },
+  "audience": {
+    "title": "Who Is This Song For?",
+    "options": [
+      {
+        "optionId": "spouse_partner",
+        "name": "My Spouse / Life Partner",
+        "description": "For husband, wife, or long-time partner",
+        "styleTag": "intimate romantic mood, heartfelt affection, emotional warmth",
+        "lyricInstruction": "romantic lifetime love story, shared golden memories, enduring love, appreciation for years together",
+        "keywords": null,
+        "genreValue": null
+      },
+      {
+        "optionId": "grandkids_kids",
+        "name": "Grandkids or Children",
+        "description": "For beloved grandchildren or kids",
+        "styleTag": "playful comforting vibe, loving gentle acoustic touch",
+        "lyricInstruction": "themes of unconditional love, watching them grow, life wisdom, sweet storytelling for young generation",
+        "keywords": null,
+        "genreValue": null
+      },
+      {
+        "optionId": "parents_grandparents",
+        "name": "Parents or In-Laws",
+        "description": "Honoring wisdom, family & roots",
+        "styleTag": "reverent honoring tone, warm comforting acoustics",
+        "lyricInstruction": "themes of gratitude, lifetime sacrifices, family roots, legacy and deep respect",
+        "keywords": null,
+        "genreValue": null
+      },
+      {
+        "optionId": "dear_friend",
+        "name": "A Lifetime Friend",
+        "description": "Celebrating years of friendship",
+        "styleTag": "warm uplifting acoustic rhythm, cheerful relaxed vibe",
+        "lyricInstruction": "themes of laughter, old memories, loyal friendship, shared adventures through the years",
+        "keywords": null,
+        "genreValue": null
+      }
+    ]
+  },
+  "emotionalVibe": {
+    "title": "Emotional Vibe",
+    "options": [
+      {
+        "optionId": "tear_jerker_nostalgic",
+        "name": "Deeply Touching & Nostalgic",
+        "description": "Bittersweet, emotional, tear-jerking",
+        "styleTag": "deeply nostalgic, emotional slow burn, poignant string resonance, bittersweet tone",
+        "lyricInstruction": "deeply touching and emotional tone, focusing on precious memories that bring happy tears",
+        "keywords": null,
+        "genreValue": null
+      },
+      {
+        "optionId": "joyful_sunny",
+        "name": "Heartwarming & Joyful",
+        "description": "Uplifting, cheerful, bright major key",
+        "styleTag": "uplifting, cheerful, bright major key, heartwarming melody, happy rhythm",
+        "lyricInstruction": "cheerful and bright tone, celebrating joy, laughter, and sunny moments",
+        "keywords": null,
+        "genreValue": null
+      },
+      {
+        "optionId": "peaceful_serene",
+        "name": "Peaceful & Tranquil",
+        "description": "Calm, reflective, soft acoustic padding",
+        "styleTag": "tranquil, serene, slow reflective tempo, soft acoustic padding, peaceful atmosphere",
+        "lyricInstruction": "peaceful and tranquil tone, calm reflection on life's sweet and quiet moments",
+        "keywords": null,
+        "genreValue": null
+      }
+    ]
+  },
+  "occasion": {
+    "title": "Occasion & Purpose",
+    "options": [
+      {
+        "optionId": "anniversary",
+        "name": "Golden / Wedding Anniversary",
+        "description": "Celebrating years of marriage",
+        "styleTag": null,
+        "lyricInstruction": "romantic milestone anthem, celebrating golden anniversary or years of marriage together",
+        "keywords": null,
+        "genreValue": null
+      },
+      {
+        "optionId": "birthday",
+        "name": "Birthday Milestone",
+        "description": "Celebrating a special birthday",
+        "styleTag": null,
+        "lyricInstruction": "celebratory happy birthday theme, making the recipient feel loved, cherished, and honored",
+        "keywords": null,
+        "genreValue": null
+      },
+      {
+        "optionId": "retirement_tribute",
+        "name": "Retirement & New Chapter",
+        "description": "Honoring a lifetime of hard work",
+        "styleTag": null,
+        "lyricInstruction": "celebrating retirement, freedom, lifetime achievements, and starting a relaxed new chapter",
+        "keywords": null,
+        "genreValue": null
+      },
+      {
+        "optionId": "holidays_christmas",
+        "name": "Christmas & Holidays",
+        "description": "Cozy holiday gathering theme",
+        "styleTag": null,
+        "lyricInstruction": "cozy winter holiday spirit, festive family warmth, Christmas togetherness and blessings",
+        "keywords": null,
+        "genreValue": null
+      },
+      {
+        "optionId": "just_because",
+        "name": "Everyday Love Note / Just Because",
+        "description": "A surprise gift out of love",
+        "styleTag": null,
+        "lyricInstruction": "intimate, personal letter style song, celebrating simple everyday moments of love",
+        "keywords": null,
+        "genreValue": null
+      }
+    ]
+  }
+}

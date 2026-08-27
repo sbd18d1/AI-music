@@ -3,6 +3,11 @@
  *
  * 每个维度最多只能选择一个选项（互斥），避免产生矛盾的提示词。
  * 设计目标：把技术性的 prompt 编写转化为老人也能理解的直观选择。
+ *
+ * 注意：这些静态定义仅作为【兜底】——前端面板与 prompt 生成实际从数据库读
+ * (SongConfigDimension / SongConfigOption)，见 src/components/SongConfigPanel.tsx
+ * (fetch /api/song-config) 与 src/lib/song-config-db.ts (resolveSelectionFromDb)。
+ * 修改分类的正确方式：更新 prisma/config-export.json 再同步数据库。
  */
 
 /**
@@ -47,64 +52,62 @@ export interface SongConfigDimension {
  */
 export const MUSIC_STYLE_DIMENSION: SongConfigDimension = {
   id: 'musicStyle',
-  title: 'Music Style & Era',
+  title: 'Music Style & Genre',
   subtitle: 'Pick the vibe that feels like home',
   options: [
     {
-      id: 'nashville_acoustic',
-      icon: '☕',
-      name: '1970s Nashville Acoustic',
-      description: 'Warm storytelling folk',
-      styleTag:
-        '1970s acoustic folk, warm analog master, gentle fingerpicked acoustic guitar, storytelling tempo',
-      genreValue: 'Country & Folk',
-    },
-    {
-      id: 'texas_honky_tonk',
-      icon: '🌵',
-      name: 'Texas Roadside Honky-Tonk',
-      description: 'Upbeat classic country',
-      styleTag:
-        'upbeat classic country, slide guitar, honky-tonk piano, driving drum rhythm, vintage 1970s vinyl master',
-      genreValue: 'Country & Folk',
-    },
-    {
-      id: 'west_coast_rock',
-      icon: '🌊',
-      name: 'West Coast Sunset Rock',
-      description: 'Smooth 70s soft rock',
-      styleTag:
-        '1970s soft rock, smooth vocal harmonies, warm electric piano, nostalgic electric guitar solo',
-      genreValue: 'Classic Rock',
-    },
-    {
-      id: 'folk_revival_60s',
+      id: 'classic_country',
       icon: '🎸',
-      name: '1960s Folk Revival',
-      description: 'Raw poetic protest folk',
+      name: 'Classic Country & Folk',
+      description: 'Warm storytelling with acoustic guitar & pedal steel',
       styleTag:
-        '1960s protest folk, raw acoustic guitar strumming, poetic delivery, organic analog recording',
-      genreValue: '60s/70s Pop Ballad',
+        '1970s acoustic country folk, warm analog sound, pedal steel guitar, gentle fingerpicked rhythm, storytelling tempo',
+      genreValue: 'Country',
     },
     {
-      id: 'modern_acoustic_pop',
-      icon: '✨',
-      name: 'Modern Acoustic Pop',
-      description: 'Ed Sheeran style warm pop',
+      id: 'classic_rock',
+      icon: '🎸',
+      name: '1970s Classic Rock',
+      description: 'Smooth vintage rock with electric guitar & organs',
       styleTag:
-        'modern acoustic pop, warm polished production, fingerpicked acoustic guitar, intimate pop tempo',
-      genreValue: 'Modern Pop',
-      keywords: ['modern acoustic pop', 'catchy guitar riff', 'upbeat acoustic groove', 'polished radio master', 'intimate pop tempo'],
+        '1970s classic soft rock, warm hammond organ, smooth electric guitar, solid drums, nostalgic rock feel',
+      genreValue: 'Rock',
     },
     {
-      id: 'upbeat_party_pop',
-      icon: '🎉',
-      name: 'Upbeat Party Pop',
-      description: 'Energetic & cheerful pop dance',
+      id: 'vintage_pop_ballad',
+      icon: '🎹',
+      name: '60s/70s Pop Ballad',
+      description: 'Sweet nostalgic melody with grand piano & strings',
       styleTag:
-        'upbeat party pop, energetic danceable rhythm, bright synth pads, fun uplifting beat',
-      genreValue: 'Modern Pop',
-      keywords: ['energetic pop', 'danceable rhythm', 'bright synth pads', 'fun uplifting beat', 'modern pop production'],
+        '1960s 1970s vintage pop ballad, acoustic grand piano, warm lush string section, smooth melody',
+      genreValue: 'Pop',
+    },
+    {
+      id: 'gospel_soul',
+      icon: '🎶',
+      name: 'Warm Gospel & Soul',
+      description: 'Uplifting emotional faith & heart-filled rhythm',
+      styleTag:
+        'gospel soul, warm organ padding, rhythmic tambourine, uplifting vocal harmonies, spiritual emotional vibe',
+      genreValue: 'Gospel',
+    },
+    {
+      id: 'jazz_crooner_swing',
+      icon: '🎷',
+      name: 'Vintage Jazz & Swing',
+      description: 'Classy, relaxed big band or jazz trio',
+      styleTag:
+        'vintage jazz trio, subtle brush drums, walking bass line, warm brass section, elegant smooth swing tempo',
+      genreValue: 'Jazz',
+    },
+    {
+      id: 'upbeat_rockabilly',
+      icon: '💃',
+      name: '50s Rock & Roll / Rockabilly',
+      description: 'Fun, high-energy danceable retro beat',
+      styleTag:
+        '1950s rockabilly, slapback bass, energetic vintage electric guitar, upbeat danceable rock and roll drum beat',
+      genreValue: 'Rock & Roll',
     },
   ],
 };
@@ -119,60 +122,36 @@ export const AUDIENCE_DIMENSION: SongConfigDimension = {
   subtitle: 'We will tune the lyrics and sound for them',
   options: [
     {
-      id: 'partner',
-      icon: '❤️',
-      name: 'For My Partner / Spouse',
-      description: 'Romantic love story',
-      styleTag: 'intimate romantic delivery, emotional depth, passionate vocal phrasing',
-      lyricInstruction: 'romantic themes, celebrating love story, shared memories, deep affection',
-      keywords: ['intimate romantic delivery', 'emotional depth', 'passionate vocal phrasing'],
+      id: 'spouse_partner',
+      icon: '💖',
+      name: 'My Spouse / Life Partner',
+      description: 'For husband, wife, or long-time partner',
+      styleTag: 'intimate romantic mood, heartfelt affection, emotional warmth',
+      lyricInstruction: 'romantic lifetime love story, shared golden memories, enduring love, appreciation for years together',
     },
     {
-      id: 'parents',
+      id: 'grandkids_kids',
+      icon: '🧒',
+      name: 'Grandkids or Children',
+      description: 'For beloved grandchildren or kids',
+      styleTag: 'playful comforting vibe, loving gentle acoustic touch',
+      lyricInstruction: 'themes of unconditional love, watching them grow, life wisdom, sweet storytelling for young generation',
+    },
+    {
+      id: 'parents_grandparents',
       icon: '🏡',
-      name: 'For Parents / Grandparents',
-      description: 'Gratitude & nostalgia',
-      styleTag: 'warm nostalgic delivery, honoring tone, heartfelt comforting resonance',
-      lyricInstruction: 'themes of gratitude, wisdom, lifetime memories, family heritage and appreciation',
-      keywords: ['warm nostalgic delivery', 'honoring tone', 'heartfelt comforting resonance'],
+      name: 'Parents or In-Laws',
+      description: 'Honoring wisdom, family & roots',
+      styleTag: 'reverent honoring tone, warm comforting acoustics',
+      lyricInstruction: 'themes of gratitude, lifetime sacrifices, family roots, legacy and deep respect',
     },
     {
-      id: 'adults',
-      icon: '👴',
-      name: 'For Myself / Adults',
-      description: 'Mature adult contemporary',
-      styleTag: 'mature adult contemporary delivery',
-      lyricInstruction: 'mature themes and storytelling',
-    },
-    {
-      id: 'toddler_lullaby',
-      icon: '🌙',
-      name: 'For Kids: Toddler Lullaby (0-3)',
-      description: 'Soft bedtime magic',
-      styleTag:
-        'magical glockenspiel, soft acoustic padding, peaceful bedtime vibe, Disney fairytale music arrangement style',
-      lyricInstruction:
-        'simple words, soothing sounds, repetitive gentle phrases suitable for ages 0-3',
-    },
-    {
-      id: 'playful_childhood',
-      icon: '🧸',
-      name: 'For Kids: Playful Childhood (4-8)',
-      description: 'Whimsical sing-along fun',
-      styleTag:
-        'playful banjo picking, toe-tapping acoustic rhythm, whimsical and fun, kid-friendly storytelling',
-      lyricInstruction:
-        'vivid imagery like catching fireflies, climbing trees, baking cookies; simple catchy words for ages 4-8',
-    },
-    {
-      id: 'campfire_singalong',
-      icon: '🌳',
-      name: 'For Kids: Campfire Sing-Along (9-12)',
-      description: 'Bright adventure folk',
-      styleTag:
-        'bright sing-along folk, uplifting acoustic guitar strumming, catchy rhythmic clapping, happy camping vibe',
-      lyricInstruction:
-        'themes of friendship, adventure, independent growth; easy-to-remember chorus for ages 9-12',
+      id: 'dear_friend',
+      icon: '🤝',
+      name: 'A Lifetime Friend',
+      description: 'Celebrating years of friendship',
+      styleTag: 'warm uplifting acoustic rhythm, cheerful relaxed vibe',
+      lyricInstruction: 'themes of laughter, old memories, loyal friendship, shared adventures through the years',
     },
   ],
 };
@@ -183,44 +162,43 @@ export const AUDIENCE_DIMENSION: SongConfigDimension = {
  */
 export const VOCAL_CHARACTER_DIMENSION: SongConfigDimension = {
   id: 'vocalCharacter',
-  title: 'Vocal Character',
+  title: 'Vocal Type',
   subtitle: 'Choose the voice that tells your story',
   options: [
     {
-      id: 'deep_baritone',
-      icon: '🤠',
-      name: 'The Deep Baritone',
-      description: 'Johnny Cash style',
-      styleTag: 'deep gravelly baritone male vocal, speak-singing style, raw emotional delivery',
-    },
-    {
-      id: 'golden_songstress',
-      icon: '🌾',
-      name: 'The Golden Songstress',
-      description: 'Dolly Parton style',
-      styleTag: 'vintage female country vocal, sweet vibrato, high angelic tone, heartfelt delivery',
-    },
-    {
-      id: 'velvet_crooner',
-      icon: '🕯️',
-      name: 'The Velvet Crooner',
-      description: 'Elvis style',
-      styleTag: 'warm velvet romantic male vocal, smooth crooner style, rich vibrato',
-    },
-    {
-      id: 'pure_folk_whisperer',
-      icon: '🕊️',
-      name: 'The Pure Folk Whisperer',
-      description: 'Karen Carpenter style',
-      styleTag: 'clear soothing female folk vocal, soft vintage tone, warm and comforting',
-    },
-    {
-      id: 'modern_duet',
+      id: 'warm_baritone_male',
       icon: '🎤',
-      name: 'Harmonious Duet',
-      description: 'Male & Female duet',
-      styleTag: 'male and female vocal duet, blended vocal harmonies, intertwining chorus lines, dynamic emotional back-and-forth',
-      keywords: ['male and female vocal duet', 'blended vocal harmonies', 'intertwining chorus lines', 'dynamic emotional back-and-forth'],
+      name: 'Deep & Warm Male Vocal',
+      description: 'Rich, resonant classic male tone',
+      styleTag: 'deep resonant baritone male vocal, warm conversational tone, sincere storytelling delivery',
+    },
+    {
+      id: 'sweet_vintage_female',
+      icon: '🌸',
+      name: 'Sweet & Clear Female Vocal',
+      description: 'Angelic, smooth vintage female tone',
+      styleTag: 'sweet vintage female vocal, high clear tone, soft vibrato, comforting gentle delivery',
+    },
+    {
+      id: 'smooth_crooner_male',
+      icon: '🕯️',
+      name: 'Smooth Velvet Male Crooner',
+      description: 'Romantic 1950s style male singer',
+      styleTag: 'velvet smooth male crooner, rich vocal vibrato, romantic tone, intimate microphone distance',
+    },
+    {
+      id: 'harmonious_duet',
+      icon: '🎤',
+      name: 'Male & Female Duet',
+      description: 'Blended male & female harmonies',
+      styleTag: 'male and female vocal duet, blended vocal harmonies, emotional back and forth singing',
+    },
+    {
+      id: 'children_choir',
+      icon: '👧',
+      name: 'Sweet Kids / Grandkids Choir',
+      description: 'Innocent, cheerful children singing',
+      styleTag: 'innocent children choir, cute playful vocals, sweet group singing, joyful uplifting kid voices',
     },
   ],
 };
@@ -234,28 +212,28 @@ export const EMOTIONAL_VIBE_DIMENSION: SongConfigDimension = {
   subtitle: 'How should this song feel?',
   options: [
     {
-      id: 'tear_jerker',
+      id: 'tear_jerker_nostalgic',
       icon: '😭',
-      name: 'The Tear-Jerker',
-      description: 'Deeply nostalgic & melancholic',
-      styleTag: 'deeply nostalgic, melancholic, slow burning intensity, poignant violin pads',
-      lyricInstruction: 'deeply nostalgic and emotional tone, bittersweet memories',
+      name: 'Deeply Touching & Nostalgic',
+      description: 'Bittersweet, emotional, tear-jerking',
+      styleTag: 'deeply nostalgic, emotional slow burn, poignant string resonance, bittersweet tone',
+      lyricInstruction: 'deeply touching and emotional tone, focusing on precious memories that bring happy tears',
     },
     {
-      id: 'heartwarming_sunny',
+      id: 'joyful_sunny',
       icon: '☀️',
-      name: 'Heartwarming & Sunny',
-      description: 'Uplifting & cheerful',
-      styleTag: 'uplifting, cheerful, heartwarming, bright major key',
-      lyricInstruction: 'uplifting and cheerful tone, focus on joy and warmth',
+      name: 'Heartwarming & Joyful',
+      description: 'Uplifting, cheerful, bright major key',
+      styleTag: 'uplifting, cheerful, bright major key, heartwarming melody, happy rhythm',
+      lyricInstruction: 'cheerful and bright tone, celebrating joy, laughter, and sunny moments',
     },
     {
-      id: 'peaceful_reflection',
+      id: 'peaceful_serene',
       icon: '🌅',
-      name: 'Peaceful Reflection',
-      description: 'Tranquil & serene',
-      styleTag: 'tranquil, serene, slow tempo, reflective, soft acoustic padding',
-      lyricInstruction: 'tranquil and reflective tone, peaceful life moments',
+      name: 'Peaceful & Tranquil',
+      description: 'Calm, reflective, soft acoustic padding',
+      styleTag: 'tranquil, serene, slow reflective tempo, soft acoustic padding, peaceful atmosphere',
+      lyricInstruction: 'peaceful and tranquil tone, calm reflection on life\'s sweet and quiet moments',
     },
   ],
 };
@@ -270,45 +248,45 @@ export const OCCASION_DIMENSION: SongConfigDimension = {
   subtitle: 'What is the special moment?',
   options: [
     {
-      id: 'birthday',
-      icon: '🎂',
-      name: 'Birthday Celebration',
-      description: 'Happy birthday theme',
-      lyricInstruction: 'celebratory tone, happy birthday theme, make the recipient feel special',
-    },
-    {
       id: 'anniversary',
       icon: '💍',
-      name: 'Golden / Silver Anniversary',
-      description: 'Everlasting love theme',
-      lyricInstruction: 'romantic milestone anthem, everlasting love theme, celebrate years together',
+      name: 'Golden / Wedding Anniversary',
+      description: 'Celebrating years of marriage',
+      lyricInstruction: 'romantic milestone anthem, celebrating golden anniversary or years of marriage together',
     },
     {
-      id: 'christmas_holidays',
+      id: 'birthday',
+      icon: '🎂',
+      name: 'Birthday Milestone',
+      description: 'Celebrating a special birthday',
+      lyricInstruction: 'celebratory happy birthday theme, making the recipient feel loved, cherished, and honored',
+    },
+    {
+      id: 'retirement_tribute',
+      icon: '🎉',
+      name: 'Retirement & New Chapter',
+      description: 'Honoring a lifetime of hard work',
+      lyricInstruction: 'celebrating retirement, freedom, lifetime achievements, and starting a relaxed new chapter',
+    },
+    {
+      id: 'holidays_christmas',
       icon: '🎄',
       name: 'Christmas & Holidays',
-      description: 'Festive winter spirit',
-      lyricInstruction: 'festive warmth, cozy winter holiday spirit, family gathering themes',
+      description: 'Cozy holiday gathering theme',
+      lyricInstruction: 'cozy winter holiday spirit, festive family warmth, Christmas togetherness and blessings',
     },
     {
-      id: 'graduation',
-      icon: '🎓',
-      name: 'Graduation & New Journey',
-      description: 'Proud & encouraging',
-      lyricInstruction: 'proud and encouraging tone, future adventure theme, celebrate new beginnings',
-    },
-    {
-      id: 'everyday_love_note',
+      id: 'just_because',
       icon: '💌',
-      name: 'Everyday Love Note',
-      description: 'No special reason',
-      lyricInstruction: 'intimate, personal letter style, everyday moments of love',
+      name: 'Everyday Love Note / Just Because',
+      description: 'A surprise gift out of love',
+      lyricInstruction: 'intimate, personal letter style song, celebrating simple everyday moments of love',
     },
   ],
 };
 
 /**
- * 全部维度配置
+ * 全部维度配置（兜底用，真实数据以数据库为准）
  */
 export const ALL_DIMENSIONS: SongConfigDimension[] = [
   MUSIC_STYLE_DIMENSION,
