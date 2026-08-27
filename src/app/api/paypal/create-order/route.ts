@@ -156,13 +156,23 @@ export async function POST(request: NextRequest) {
         where: { issuedByDeviceId: deviceId, used: false },
       });
       if (unused) {
-        appliedCouponValue = Number(unused.value) || COUPON_VALUE;
+        // Cap the effective deduction at the current coupon value (a legacy $1.00 coupon
+        // on a $1.00 song would otherwise drive the order to $0.00, which PayPal rejects).
+        appliedCouponValue = Math.min(Number(unused.value) || COUPON_VALUE, COUPON_VALUE);
         couponCodeForOrder = unused.code;
         console.log(`${reqId} Applying coupon code=${unused.code} (-$${appliedCouponValue.toFixed(2)}) for deviceId=${deviceId.slice(0, 12)}…`);
       }
     }
     const basePrice = parseFloat(PURCHASE_PRICE);
-    const payAmount = Math.max(0, basePrice - appliedCouponValue).toFixed(2);
+    // Guard: PayPal rejects an order whose amount is 0 or negative. A coupon that would
+    // fully cover the price (e.g. a legacy $1.00 coupon on a $1.00 song) must not create
+    // a $0.00 order — keep a minimal positive amount so checkout still succeeds.
+    let payAmountNum = basePrice - appliedCouponValue;
+    if (payAmountNum <= 0) {
+      appliedCouponValue = basePrice - 0.01; // cap the deduction, leave $0.01 to pay
+      payAmountNum = 0.01;
+    }
+    const payAmount = payAmountNum.toFixed(2);
 
     await prisma.order.create({
       data: {
