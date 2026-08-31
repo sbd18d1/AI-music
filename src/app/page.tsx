@@ -86,11 +86,16 @@ export default function Home() {
   const [hasUsedFreeTrial, setHasUsedFreeTrial] = useState(false);
 
   const [songConfig, setSongConfig] = useState<SongConfigSelection>(DEFAULT_SELECTION);
-  const [productPrice, setProductPrice] = useState<string>('$1.00');
+  // Limited-time promo price actually charged ($5.00). The regular list price is $9.90
+  // and is shown struck-through wherever the promo price appears.
+  const [productPrice, setProductPrice] = useState<string>('$5.00');
+  const [regularPrice, setRegularPrice] = useState<string>('$9.90');
   const [priceLoading, setPriceLoading] = useState(false);
 
   // Coupon (fingerprint-bound) states — no user-facing code, no manual redemption.
-  const [couponEarned, setCouponEarned] = useState(false); // shown as "you earned $2 off" toast
+  const [couponEarned, setCouponEarned] = useState(false); // shown as "you earned $0.50 off" toast
+  const [hasCoupon, setHasCoupon] = useState(false);       // whether this fingerprint owns an unused coupon
+  const [couponValue, setCouponValue] = useState(0);       // its value (for display)
 
   // Share (native sheet / modal) state
   const [shareOpen, setShareOpen] = useState(false);
@@ -100,9 +105,10 @@ export default function Home() {
 
   const deliveryStrategy = getDeliveryStrategy();
 
-  // Price is fixed at $1.00 (matches /api/paypal/create-order PURCHASE_PRICE).
-  // A fingerprint-bound $0.50 coupon, when available, auto-deducts to $0.50 at checkout.
-  // No dynamic price fetching — PayPal shows the actual total in its checkout window.
+  // Limited-time promo price is $5.00 (matches /api/paypal/create-order PURCHASE_PRICE);
+  // the regular list price is $9.90. A fingerprint-bound $0.50 coupon, when available,
+  // auto-deducts $0.50 at checkout. No dynamic price fetching — PayPal shows the actual
+  // total in its checkout window.
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -436,6 +442,14 @@ export default function Home() {
         body: JSON.stringify({ ...buildPayload(), deviceId }),
       });
       const data = await response.json();
+      // Keep the displayed promo / regular prices in sync with the backend.
+      if (data?.basePrice) setProductPrice(`$${Number(data.basePrice).toFixed(2)}`);
+      if (data?.regularPrice) setRegularPrice(`$${Number(data.regularPrice).toFixed(2)}`);
+      // Coupon fully covered the song → free order, no PayPal. Go straight to delivery.
+      if (data.success && data.isFree && data.orderId) {
+        window.location.href = `/order-status?order_id=${data.orderId}&provider=coupon`;
+        return;
+      }
       // Redirect to PayPal immediately — no "generating" text before payment.
       if (data.success && data.links) {
         // Surface an applied coupon discount before leaving for PayPal.
@@ -516,6 +530,22 @@ export default function Home() {
       }
     });
   }, [handleIssueCoupon]);
+
+  // Tell the user up-front if they own an unused coupon (auto-applied at checkout).
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const deviceId = await getDeviceId();
+        const res = await fetch(`/api/coupon/status?deviceId=${encodeURIComponent(deviceId)}`);
+        const data = await res.json();
+        setHasCoupon(!!data.hasCoupon);
+        setCouponValue(Number(data.value) || 0);
+      } catch (e) {
+        console.error('[coupon] status check error:', e);
+      }
+    };
+    check();
+  }, []);
 
   // "Generate a brand new song" from the trial results area: scroll back to the
   // always-visible description form so the user can revise their prompt, then pay
@@ -749,7 +779,7 @@ export default function Home() {
                   )}
                 </button>
                 <p className="text-center text-base-content/60 text-sm mt-1">
-                  Full song with MP3 download. One-time payment.
+                  <s>{regularPrice}</s> Today only <span className="font-semibold text-base-content">{productPrice}</span> · Full song with MP3 download. One-time payment. · 🔥 Limited-time offer
                 </p>
 
                 {couponEarned && (
@@ -902,7 +932,7 @@ export default function Home() {
                         ) : (
                           <>
                             <CreditCard className="w-6 h-6" />
-                            Get Full Song ({productPrice})
+                            Get Full Song (<s className="font-normal">{regularPrice}</s> {productPrice})
                           </>
                         )}
                       </button>
@@ -920,7 +950,7 @@ export default function Home() {
                             className="w-full bg-primary text-white font-bold py-4 px-6 rounded-xl border-2 border-base-content shadow-sm hover:bg-primary/90 transition-all flex items-center justify-center gap-3 active:translate-x-1 active:translate-y-1 active:shadow-none"
                           >
                             <RefreshCw className="w-5 h-5" />
-                            Generate a Brand New Song ({productPrice})
+                            Generate a Brand New Song (<s className="font-normal">{regularPrice}</s> {productPrice})
                           </button>
                         </div>
                       </div>

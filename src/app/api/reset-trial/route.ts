@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/db/client';
+import { ensureCouponTable } from '@/lib/ensure-coupon-table';
 
 const resetSchema = z.object({
   deviceId: z.string().max(200).optional(),
@@ -54,13 +55,26 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log(`[${new Date().toISOString()}] Reset complete: deleted ${deletedUsage.count} trial usage(s) and ${deletedOrders.count} trial order(s) for device: ${deviceId || 'none'}, IP: ${ipAddress}`);
+    // Reset must also void any fingerprint-bound unused coupons for this device, so a
+    // stale coupon can't be redeemed later (e.g. a $1 coupon left over from an old price).
+    let voidedCoupons = 0;
+    if (deviceId) {
+      await ensureCouponTable();
+      const res = await prisma.coupon.updateMany({
+        where: { issuedByDeviceId: deviceId, used: false },
+        data: { used: true, usedAt: new Date(), usedForOrderId: 'reset' },
+      });
+      voidedCoupons = res.count;
+    }
+
+    console.log(`[${new Date().toISOString()}] Reset complete: deleted ${deletedUsage.count} trial usage(s) and ${deletedOrders.count} trial order(s), voided ${voidedCoupons} coupon(s) for device: ${deviceId || 'none'}, IP: ${ipAddress}`);
 
     return NextResponse.json({
       success: true,
       deleted: {
         trialUsage: deletedUsage.count,
         trialOrders: deletedOrders.count,
+        coupons: voidedCoupons,
       },
     });
   } catch (error) {

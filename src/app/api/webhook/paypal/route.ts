@@ -3,6 +3,7 @@ import { prisma } from '@/db/client';
 import { generateSong } from '@/lib/ai-music';
 import { sendSongEmail } from '@/lib/email';
 import { consumeCouponForOrder } from '@/lib/coupon-use';
+import { ensureOrderEmailColumn } from '@/lib/ensure-coupon-table';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -131,6 +132,7 @@ function extractOrderId(resource: Record<string, unknown>): string | null {
 export async function POST(request: NextRequest) {
   const reqId = `[${new Date().toISOString()}] [paypal:webhook]`;
   try {
+    await ensureOrderEmailColumn();
     const body = await request.text();
 
     const verified = await verifyWebhookSignature(body, request.headers);
@@ -231,7 +233,11 @@ export async function POST(request: NextRequest) {
             lyrics: trialSong.lyrics || undefined,
             orderId,
           });
-          if (!sendResult.ok) console.error(`${reqId} Email FAILED to ${emailForDelivery}: ${sendResult.error}`);
+          if (sendResult.ok) {
+            await prisma.order.update({ where: { id: orderId }, data: { emailSentAt: new Date() } });
+          } else {
+            console.error(`${reqId} Email FAILED to ${emailForDelivery}: ${sendResult.error}`);
+          }
         }
         console.log(`${reqId} Order ${orderId} fulfilled via trial`);
         return NextResponse.json({ status: 'success' });
@@ -300,7 +306,11 @@ export async function POST(request: NextRequest) {
               lyrics: result.lyrics,
               orderId,
             });
-            if (!sendResult.ok) console.error(`${reqId} Email FAILED to ${emailForDelivery}: ${sendResult.error}`);
+            if (sendResult.ok) {
+              await prisma.order.update({ where: { id: orderId }, data: { emailSentAt: new Date() } });
+            } else {
+              console.error(`${reqId} Email FAILED to ${emailForDelivery}: ${sendResult.error}`);
+            }
           }
         } else {
           // True submission failure — nothing to poll.

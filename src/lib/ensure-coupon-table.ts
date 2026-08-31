@@ -2,6 +2,7 @@ import { tursoClient } from './turso-client';
 
 let couponEnsured = false;
 let orderColumnEnsured = false;
+let orderEmailColumnEnsured = false;
 
 const CREATE_COUPON_TABLE = `CREATE TABLE IF NOT EXISTS "Coupon" (
   "id" TEXT NOT NULL PRIMARY KEY,
@@ -43,4 +44,15 @@ export async function ensureOrderCouponColumn(): Promise<void> {
     await tursoClient.execute(`ALTER TABLE "Order" ADD COLUMN "couponCode" TEXT`);
   }
   orderColumnEnsured = true;
+}
+
+/** Ensure the `Order.emailSentAt` column exists (auto-email idempotency). */
+export async function ensureOrderEmailColumn(): Promise<void> {
+  if (orderEmailColumnEnsured) return;
+  const info = await tursoClient.execute(`PRAGMA table_info("Order")`);
+  const columns = (info.rows as unknown as { name: string }[]).map((r) => r.name);
+  if (!columns.includes('emailSentAt')) {
+    await tursoClient.execute(`ALTER TABLE "Order" ADD COLUMN "emailSentAt" DATETIME`);
+  }
+  orderEmailColumnEnsured = true;
 }

@@ -94,6 +94,7 @@ export const OrderScalarFieldEnum = {
   deviceId: 'deviceId',
   trialOrderId: 'trialOrderId',
   couponCode: 'couponCode',
+  emailSentAt: 'emailSentAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

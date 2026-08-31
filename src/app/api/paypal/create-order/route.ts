@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/db/client';
 import { z } from 'zod';
+import { generateSong } from '@/lib/ai-music';
 import { ensureCouponTable, ensureOrderCouponColumn } from '@/lib/ensure-coupon-table';
+import { consumeCouponForOrder } from '@/lib/coupon-use';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -23,8 +25,10 @@ const CreateOrderSchema = z.object({
   deviceId: z.string().max(200).optional(), // browser fingerprint (getDeviceId) — coupon owner
 });
 
-// Base price for the full song purchase (USD)
-const PURCHASE_PRICE = '1.00';
+// Regular (list) price for a full song — shown to users as the struck-through original.
+const REGULAR_PRICE = '9.90';
+// Limited-time promo price actually charged for a full song (USD).
+const PURCHASE_PRICE = '5.00';
 // Coupon deduction per order (a fingerprint-bound coupon automatically subtracts this).
 const COUPON_VALUE = 0.5;
 const PURCHASE_CURRENCY = 'USD';
@@ -145,8 +149,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine automatic coupon deduction: an unused coupon bound to this device's
-    // fingerprint reduces the price by COUPON_VALUE. Marks used only on payment success
-    // (capture/webhook), so an abandoned checkout doesn't waste the coupon.
+    // fingerprint reduces the price by the coupon's real value. If it fully covers the
+    // song, we skip PayPal and unlock it for free (see "free" branch below).
     await ensureCouponTable();
     await ensureOrderCouponColumn();
     let appliedCouponValue = 0;
@@ -156,23 +160,16 @@ export async function POST(request: NextRequest) {
         where: { issuedByDeviceId: deviceId, used: false },
       });
       if (unused) {
-        // Cap the effective deduction at the current coupon value (a legacy $1.00 coupon
-        // on a $1.00 song would otherwise drive the order to $0.00, which PayPal rejects).
-        appliedCouponValue = Math.min(Number(unused.value) || COUPON_VALUE, COUPON_VALUE);
+        // Use the coupon's actual value (a $1 coupon on a $1 song fully covers it).
+        appliedCouponValue = Number(unused.value) || COUPON_VALUE;
         couponCodeForOrder = unused.code;
         console.log(`${reqId} Applying coupon code=${unused.code} (-$${appliedCouponValue.toFixed(2)}) for deviceId=${deviceId.slice(0, 12)}…`);
       }
     }
     const basePrice = parseFloat(PURCHASE_PRICE);
-    // Guard: PayPal rejects an order whose amount is 0 or negative. A coupon that would
-    // fully cover the price (e.g. a legacy $1.00 coupon on a $1.00 song) must not create
-    // a $0.00 order — keep a minimal positive amount so checkout still succeeds.
-    let payAmountNum = basePrice - appliedCouponValue;
-    if (payAmountNum <= 0) {
-      appliedCouponValue = basePrice - 0.01; // cap the deduction, leave $0.01 to pay
-      payAmountNum = 0.01;
-    }
-    const payAmount = payAmountNum.toFixed(2);
+    const payAmountNum = basePrice - appliedCouponValue;
+    const payAmount = Math.max(0, payAmountNum).toFixed(2);
+    const isFree = payAmountNum <= 0; // coupon fully covers the song → unlock without payment
 
     await prisma.order.create({
       data: {
@@ -184,7 +181,7 @@ export async function POST(request: NextRequest) {
         selectedArtistStyle,
         customerEmail: userEmail || null,
         songConfig: songConfig ? JSON.stringify(songConfig) : null,
-        status: 'pending',
+        status: isFree ? 'processing' : 'pending',
         isFullVersion: true,
         trialOrderId: trialOrderId || null,
         ipAddress: trialOrderData?.ipAddress || null,
@@ -197,6 +194,56 @@ export async function POST(request: NextRequest) {
         duration: trialOrderData?.duration || null,
       },
     });
+
+    // ===== FREE path: a coupon fully covered the song → no PayPal. Unlock directly. =====
+    if (isFree) {
+      // Consume the coupon now (this free order is locked in).
+      const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+        request.headers.get('x-real-ip') || request.ip || 'unknown';
+      const voided = await consumeCouponForOrder(orderId, couponCodeForOrder, deviceId, ip);
+
+      // Reuse the trial audio (already successful) → immediate success.
+      if (trialOrderData?.audioUrl) {
+        await prisma.order.update({
+          where: { id: orderId },
+          data: { status: 'success' },
+        });
+        console.log(`${reqId} FREE (reused trial) orderId=${orderId} couponCode=${couponCodeForOrder} ⇦voided=${voided}`);
+        return NextResponse.json({ success: true, isFree: true, orderId, status: 'success', amountPaid: '0.00', couponApplied: true });
+      }
+      // Otherwise submit a brand-new full generation (async).
+      try {
+        const result = await generateSong({
+          recipientName,
+          personality: resolvedPersonality,
+          genre,
+          isPreview: false,
+          selectedStyle: selectedStyle || genre,
+          selectedArtistStyle: selectedArtistStyle ?? undefined,
+          songConfig: songConfig ?? undefined,
+          waitForResult: false,
+        });
+        if (result.success && result.requestId) {
+          await prisma.order.update({ where: { id: orderId }, data: { aiRequestId: result.requestId } });
+          console.log(`${reqId} FREE (submitted) orderId=${orderId} taskId=${result.requestId} voucher voided=${voided}`);
+          return NextResponse.json({ success: true, isFree: true, orderId, status: 'processing', amountPaid: '0.00', couponApplied: true });
+        }
+        if (result.success && result.audioUrl) {
+          await prisma.order.update({
+            where: { id: orderId },
+            data: { status: 'success', audioUrl: result.audioUrl, lyrics: result.lyrics || null, title: result.title || null, coverImageUrl: result.coverImageUrl || null, duration: result.duration || null, aiRequestId: result.requestId || null },
+          });
+          return NextResponse.json({ success: true, isFree: true, orderId, status: 'success', amountPaid: '0.00', couponApplied: true });
+        }
+        // generation failed
+        await prisma.order.update({ where: { id: orderId }, data: { status: 'failed', aiRequestId: result.requestId || null } });
+        return NextResponse.json({ success: false, error: result.error || 'Song generation failed' }, { status: 500 });
+      } catch (genErr) {
+        console.error(`${reqId} FREE generation exception:`, genErr);
+        await prisma.order.update({ where: { id: orderId }, data: { status: 'failed' } });
+        return NextResponse.json({ success: false, error: 'Song generation failed' }, { status: 500 });
+      }
+    }
 
     const { clientId, clientSecret, baseUrl, mode } = getPayPalConfig();
 
@@ -312,6 +359,8 @@ export async function POST(request: NextRequest) {
       // Pricing/coupon info so the frontend can surface "you saved $X".
       amountPaid: payAmount,
       basePrice: basePrice.toFixed(2),
+      // Regular (pre-promo) list price so the UI can show "was $9.90, now $5.00".
+      regularPrice: REGULAR_PRICE,
       couponApplied: appliedCouponValue > 0,
       couponValue: appliedCouponValue > 0 ? appliedCouponValue.toFixed(2) : null,
     });

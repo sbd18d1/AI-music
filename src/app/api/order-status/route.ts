@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/db/client';
 import { checkResultOnce } from '@/lib/ai-music';
+import { ensureOrderEmailColumn } from '@/lib/ensure-coupon-table';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -13,6 +14,7 @@ export const maxDuration = 60;
 //   permanent 'failed'; the customer has already paid by this point.
 export async function GET(request: NextRequest) {
   try {
+    await ensureOrderEmailColumn();
     const urlParams = new URLSearchParams(request.url.split('?')[1]);
     const orderId = urlParams.get('order_id');
 
@@ -93,6 +95,8 @@ export async function GET(request: NextRequest) {
         title: order.title,
         coverImageUrl: order.coverImageUrl,
         duration: order.duration,
+        customerEmail: order.customerEmail,
+        emailSent: !!order.emailSentAt,
         createdAt: order.createdAt.toISOString(),
       },
     }, {

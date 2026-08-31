@@ -30,6 +30,7 @@ model Order {
   deviceId           String?
   trialOrderId       String?
   couponCode         String?   // internal code of the coupon auto-applied to this order (audit)
+  emailSentAt        DateTime? // set once the song email has been delivered (idempotency)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 

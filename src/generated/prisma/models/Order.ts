@@ -47,6 +47,7 @@ export type OrderMinAggregateOutputType = {
   deviceId: string | null
   trialOrderId: string | null
   couponCode: string | null
+  emailSentAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -74,6 +75,7 @@ export type OrderMaxAggregateOutputType = {
   deviceId: string | null
   trialOrderId: string | null
   couponCode: string | null
+  emailSentAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -101,6 +103,7 @@ export type OrderCountAggregateOutputType = {
   deviceId: number
   trialOrderId: number
   couponCode: number
+  emailSentAt: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -130,6 +133,7 @@ export type OrderMinAggregateInputType = {
   deviceId?: true
   trialOrderId?: true
   couponCode?: true
+  emailSentAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -157,6 +161,7 @@ export type OrderMaxAggregateInputType = {
   deviceId?: true
   trialOrderId?: true
   couponCode?: true
+  emailSentAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -184,6 +189,7 @@ export type OrderCountAggregateInputType = {
   deviceId?: true
   trialOrderId?: true
   couponCode?: true
+  emailSentAt?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -284,6 +290,7 @@ export type OrderGroupByOutputType = {
   deviceId: string | null
   trialOrderId: string | null
   couponCode: string | null
+  emailSentAt: Date | null
   createdAt: Date
   updatedAt: Date
   _count: OrderCountAggregateOutputType | null
@@ -332,6 +339,7 @@ export type OrderWhereInput = {
   deviceId?: Prisma.StringNullableFilter<"Order"> | string | null
   trialOrderId?: Prisma.StringNullableFilter<"Order"> | string | null
   couponCode?: Prisma.StringNullableFilter<"Order"> | string | null
+  emailSentAt?: Prisma.DateTimeNullableFilter<"Order"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"Order"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Order"> | Date | string
 }
@@ -359,6 +367,7 @@ export type OrderOrderByWithRelationInput = {
   deviceId?: Prisma.SortOrderInput | Prisma.SortOrder
   trialOrderId?: Prisma.SortOrderInput | Prisma.SortOrder
   couponCode?: Prisma.SortOrderInput | Prisma.SortOrder
+  emailSentAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -389,6 +398,7 @@ export type OrderWhereUniqueInput = Prisma.AtLeast<{
   deviceId?: Prisma.StringNullableFilter<"Order"> | string | null
   trialOrderId?: Prisma.StringNullableFilter<"Order"> | string | null
   couponCode?: Prisma.StringNullableFilter<"Order"> | string | null
+  emailSentAt?: Prisma.DateTimeNullableFilter<"Order"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"Order"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Order"> | Date | string
 }, "id">
@@ -416,6 +426,7 @@ export type OrderOrderByWithAggregationInput = {
   deviceId?: Prisma.SortOrderInput | Prisma.SortOrder
   trialOrderId?: Prisma.SortOrderInput | Prisma.SortOrder
   couponCode?: Prisma.SortOrderInput | Prisma.SortOrder
+  emailSentAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.OrderCountOrderByAggregateInput
@@ -449,6 +460,7 @@ export type OrderScalarWhereWithAggregatesInput = {
   deviceId?: Prisma.StringNullableWithAggregatesFilter<"Order"> | string | null
   trialOrderId?: Prisma.StringNullableWithAggregatesFilter<"Order"> | string | null
   couponCode?: Prisma.StringNullableWithAggregatesFilter<"Order"> | string | null
+  emailSentAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Order"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Order"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Order"> | Date | string
 }
@@ -476,6 +488,7 @@ export type OrderCreateInput = {
   deviceId?: string | null
   trialOrderId?: string | null
   couponCode?: string | null
+  emailSentAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -503,6 +516,7 @@ export type OrderUncheckedCreateInput = {
   deviceId?: string | null
   trialOrderId?: string | null
   couponCode?: string | null
+  emailSentAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -530,6 +544,7 @@ export type OrderUpdateInput = {
   deviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trialOrderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   couponCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -557,6 +572,7 @@ export type OrderUncheckedUpdateInput = {
   deviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trialOrderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   couponCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -584,6 +600,7 @@ export type OrderCreateManyInput = {
   deviceId?: string | null
   trialOrderId?: string | null
   couponCode?: string | null
+  emailSentAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -611,6 +628,7 @@ export type OrderUpdateManyMutationInput = {
   deviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trialOrderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   couponCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -638,6 +656,7 @@ export type OrderUncheckedUpdateManyInput = {
   deviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trialOrderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   couponCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -665,6 +684,7 @@ export type OrderCountOrderByAggregateInput = {
   deviceId?: Prisma.SortOrder
   trialOrderId?: Prisma.SortOrder
   couponCode?: Prisma.SortOrder
+  emailSentAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -692,6 +712,7 @@ export type OrderMaxOrderByAggregateInput = {
   deviceId?: Prisma.SortOrder
   trialOrderId?: Prisma.SortOrder
   couponCode?: Prisma.SortOrder
+  emailSentAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -719,6 +740,7 @@ export type OrderMinOrderByAggregateInput = {
   deviceId?: Prisma.SortOrder
   trialOrderId?: Prisma.SortOrder
   couponCode?: Prisma.SortOrder
+  emailSentAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -733,6 +755,10 @@ export type NullableStringFieldUpdateOperationsInput = {
 
 export type BoolFieldUpdateOperationsInput = {
   set?: boolean
+}
+
+export type NullableDateTimeFieldUpdateOperationsInput = {
+  set?: Date | string | null
 }
 
 export type DateTimeFieldUpdateOperationsInput = {
@@ -764,6 +790,7 @@ export type OrderSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   deviceId?: boolean
   trialOrderId?: boolean
   couponCode?: boolean
+  emailSentAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["order"]>
@@ -791,6 +818,7 @@ export type OrderSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   deviceId?: boolean
   trialOrderId?: boolean
   couponCode?: boolean
+  emailSentAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["order"]>
@@ -818,6 +846,7 @@ export type OrderSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   deviceId?: boolean
   trialOrderId?: boolean
   couponCode?: boolean
+  emailSentAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["order"]>
@@ -845,11 +874,12 @@ export type OrderSelectScalar = {
   deviceId?: boolean
   trialOrderId?: boolean
   couponCode?: boolean
+  emailSentAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type OrderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "recipientName" | "personality" | "genre" | "userEmail" | "customerEmail" | "selectedStyle" | "selectedArtistStyle" | "songConfig" | "status" | "paymentOrderId" | "aiRequestId" | "audioUrl" | "lyrics" | "title" | "coverImageUrl" | "duration" | "isFullVersion" | "ipAddress" | "deviceId" | "trialOrderId" | "couponCode" | "createdAt" | "updatedAt", ExtArgs["result"]["order"]>
+export type OrderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "recipientName" | "personality" | "genre" | "userEmail" | "customerEmail" | "selectedStyle" | "selectedArtistStyle" | "songConfig" | "status" | "paymentOrderId" | "aiRequestId" | "audioUrl" | "lyrics" | "title" | "coverImageUrl" | "duration" | "isFullVersion" | "ipAddress" | "deviceId" | "trialOrderId" | "couponCode" | "emailSentAt" | "createdAt" | "updatedAt", ExtArgs["result"]["order"]>
 
 export type $OrderPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Order"
@@ -877,6 +907,7 @@ export type $OrderPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     deviceId: string | null
     trialOrderId: string | null
     couponCode: string | null
+    emailSentAt: Date | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["order"]>
@@ -1324,6 +1355,7 @@ export interface OrderFieldRefs {
   readonly deviceId: Prisma.FieldRef<"Order", 'String'>
   readonly trialOrderId: Prisma.FieldRef<"Order", 'String'>
   readonly couponCode: Prisma.FieldRef<"Order", 'String'>
+  readonly emailSentAt: Prisma.FieldRef<"Order", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"Order", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"Order", 'DateTime'>
 }

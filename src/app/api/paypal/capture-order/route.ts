@@ -3,6 +3,7 @@ import { prisma } from '@/db/client';
 import { generateSong } from '@/lib/ai-music';
 import { sendSongEmail } from '@/lib/email';
 import { consumeCouponForOrder } from '@/lib/coupon-use';
+import { ensureOrderEmailColumn } from '@/lib/ensure-coupon-table';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -48,6 +49,7 @@ export async function POST(request: NextRequest) {
   const t0 = Date.now();
   const reqId = `[${new Date().toISOString()}] [paypal:capture-order]`;
   try {
+    await ensureOrderEmailColumn();
     const body = (await request.json()) as CaptureBody;
     const { orderId, paymentOrderId } = body;
 
@@ -235,6 +237,7 @@ export async function POST(request: NextRequest) {
         });
         if (sendResult.ok) {
           console.log(`${reqId} Email sent to ${emailForDelivery}`);
+          await prisma.order.update({ where: { id: orderId }, data: { emailSentAt: new Date() } });
         } else {
           console.error(`${reqId} Email FAILED to ${emailForDelivery}: ${sendResult.error}`);
         }
@@ -326,6 +329,7 @@ export async function POST(request: NextRequest) {
           });
           if (sendResult.ok) {
             console.log(`${reqId} Email sent to ${emailForDelivery}`);
+            await prisma.order.update({ where: { id: orderId }, data: { emailSentAt: new Date() } });
           } else {
             console.error(`${reqId} Email FAILED to ${emailForDelivery}: ${sendResult.error}`);
           }
