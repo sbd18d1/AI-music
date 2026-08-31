@@ -28,7 +28,7 @@ const CreateOrderSchema = z.object({
 // Regular (list) price for a full song — shown to users as the struck-through original.
 const REGULAR_PRICE = '9.90';
 // Limited-time promo price actually charged for a full song (USD).
-const PURCHASE_PRICE = '5.00';
+const PURCHASE_PRICE = '4.90';
 // Coupon deduction per order (a fingerprint-bound coupon automatically subtracts this).
 const COUPON_VALUE = 0.5;
 const PURCHASE_CURRENCY = 'USD';

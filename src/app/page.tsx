@@ -86,9 +86,9 @@ export default function Home() {
   const [hasUsedFreeTrial, setHasUsedFreeTrial] = useState(false);
 
   const [songConfig, setSongConfig] = useState<SongConfigSelection>(DEFAULT_SELECTION);
-  // Limited-time promo price actually charged ($5.00). The regular list price is $9.90
+  // Limited-time promo price actually charged ($4.90). The regular list price is $9.90
   // and is shown struck-through wherever the promo price appears.
-  const [productPrice, setProductPrice] = useState<string>('$5.00');
+  const [productPrice, setProductPrice] = useState<string>('$4.90');
   const [regularPrice, setRegularPrice] = useState<string>('$9.90');
   const [priceLoading, setPriceLoading] = useState(false);
 
@@ -774,7 +774,7 @@ export default function Home() {
                   ) : (
                     <>
                       <CreditCard className="w-6 h-6" />
-                      Create Full Song ({productPrice})
+                      Create Full Song (<s className="font-normal">{regularPrice}</s> {productPrice})
                     </>
                   )}
                 </button>
