@@ -87,9 +87,9 @@ export default function Home() {
   const [hasUsedFreeTrial, setHasUsedFreeTrial] = useState(false);
 
   const [songConfig, setSongConfig] = useState<SongConfigSelection>(DEFAULT_SELECTION);
-  // Limited-time promo price actually charged ($4.90). The regular list price is $9.90
+  // Limited-time promo price actually charged ($1.00). The regular list price is $9.90
   // and is shown struck-through wherever the promo price appears.
-  const [productPrice, setProductPrice] = useState<string>('$4.90');
+  const [productPrice, setProductPrice] = useState<string>('$1.00');
   const [regularPrice, setRegularPrice] = useState<string>('$9.90');
   const [priceLoading, setPriceLoading] = useState(false);
 

@@ -7,7 +7,7 @@
 /** Regular (list) price for a full song — shown to users as the struck-through original. */
 export const REGULAR_PRICE = '9.90';
 /** Limited-time promo price actually charged for a full song (USD). */
-export const PURCHASE_PRICE = '4.90';
+export const PURCHASE_PRICE = '1.00';
 /** Coupon deduction per order (a fingerprint-bound coupon automatically subtracts this). */
 export const COUPON_VALUE = 0.5;
 export const PURCHASE_CURRENCY = 'USD';

@@ -500,6 +500,56 @@ export async function generateSong(
  * - 排除 audiopipe 临时流式域名（通常不可长期访问）；
  * - 排除被注释/占位的假 URL。
  */
+/**
+ * Normalize a title coming back from 302.ai/Suno.
+ *
+ * Suno returns the literal placeholder "unTitled" (and sometimes an empty string) for
+ * tracks it didn't name. Showing that verbatim looks like a bug to the user, so we
+ * substitute a readable fallback derived from the recipient/genre instead.
+ */
+export function normalizeSongTitle(
+  rawTitle: unknown,
+  fallback: { recipientName?: string; genre?: string }
+): string {
+  const title = typeof rawTitle === 'string' ? rawTitle.trim() : '';
+  const isPlaceholder = !title || /^un[\s_-]?title(?:d)?$/i.test(title);
+  if (!isPlaceholder) return title;
+
+  const who = (fallback.recipientName || '').trim();
+  const genre = (fallback.genre || '').trim();
+  if (who && genre) return `${who}'s ${genre} Song`;
+  if (who) return `${who}'s Song`;
+  if (genre) return `A ${genre} Song`;
+  return 'Your Personalized Song';
+}
+
+/**
+ * Pick the best playable audio URL out of a Suno track object.
+ *
+ * Suno exposes the same track under several fields, and they are NOT equivalent:
+ *   - `audio_url` / `source_audio_url` → the CDN file (stable, the one we want)
+ *   - `stream_audio_url`               → a signed streaming URL
+ *   - `audiopipe.suno.ai/?item_id=…`   → a SHORT-LIVED signed stream that returns
+ *                                       403 {"detail":"Invalid or expired stream URL"}
+ *                                        within minutes. Storing it guarantees a song
+ *                                        that cannot be played back later.
+ *
+ * So we return the first URL that is not an audiopipe link, checking the CDN-ish
+ * fields before the streaming one. Returns null when every candidate is a stream URL.
+ */
+export function pickPlayableAudioUrl(track: any): string | null {
+  if (!track) return null;
+  const candidates = [
+    track.audio_url,
+    track.source_audio_url,
+    track.cdn_url,
+    track.stream_audio_url,
+  ].filter((u: unknown): u is string => typeof u === 'string' && u.length > 0);
+
+  const stable = candidates.find((u) => !/audiopipe/i.test(u));
+  return stable || null;
+}
+
 export function isPlayableAudioUrl(url: string | null | undefined): boolean {
   if (!url) return false;
   if (typeof url !== 'string') return false;
@@ -576,12 +626,21 @@ export async function pollForResult(taskId: string): Promise<GenerateSongRespons
           };
         }
 
-        // Select first song with audio_url (prefer non-audiopipe CDN URLs)
-        const song = songs.find((s: any) => s.audio_url && !s.audio_url.includes('audiopipe'))
-          || songs.find((s: any) => s.audio_url);
+        // Select the first track with a STABLE (non-audiopipe) audio URL — an
+        // audiopipe stream expires within minutes and would be unplayable later.
+        let song: any = null;
+        let songAudioUrl: string | null = null;
+        for (const s of songs) {
+          const url = pickPlayableAudioUrl(s);
+          if (url) {
+            song = s;
+            songAudioUrl = url;
+            break;
+          }
+        }
 
-        if (song && song.audio_url) {
-          log('Song generation complete! Audio URL:', song.audio_url);
+        if (song && songAudioUrl) {
+          log('Song generation complete! Audio URL:', songAudioUrl);
           log('Song status:', song.status);
           log('Song title:', song.title || 'Unknown');
 
@@ -594,18 +653,20 @@ export async function pollForResult(taskId: string): Promise<GenerateSongRespons
             }
           }
 
-          // Lyrics: gpt_description_prompt first, then prompt, then lyrics
-          let songLyrics = '';
-          for (const meta of allMeta) {
-            if (meta.gpt_description_prompt && meta.gpt_description_prompt.length > songLyrics.length)
-              songLyrics = meta.gpt_description_prompt;
-            if (meta.prompt && meta.prompt.length > songLyrics.length)
-              songLyrics = meta.prompt;
-            if (meta.lyrics && meta.lyrics.length > songLyrics.length)
-              songLyrics = meta.lyrics;
-          }
+          // Lyrics: real `lyrics` first; prompt fields only as a fallback. See the
+          // note in checkResultOnce — a longest-string scan would let the generation
+          // prompt overwrite the actual lyrics.
+          const pickLongestMeta = (key: string): string => {
+            let best = '';
+            for (const meta of allMeta) {
+              const v = meta?.[key];
+              if (typeof v === 'string' && v.length > best.length) best = v;
+            }
+            return best;
+          };
+          let songLyrics = pickLongestMeta('lyrics') || pickLongestMeta('prompt') || pickLongestMeta('gpt_description_prompt');
           if (!songLyrics)
-            songLyrics = song.prompt || song.lyrics || song.description || '';
+            songLyrics = song.lyrics || song.prompt || song.description || '';
 
           log('Lyrics length:', songLyrics ? songLyrics.length : 0);
           log('Lyrics preview:', songLyrics ? songLyrics.substring(0, 100) + '...' : 'EMPTY');
@@ -625,9 +686,11 @@ export async function pollForResult(taskId: string): Promise<GenerateSongRespons
 
           const result: GenerateSongResponse = {
             success: true,
-            audioUrl: song.audio_url,
+            audioUrl: songAudioUrl,
             requestId: taskId,
             lyrics: songLyrics,
+            // Raw upstream title — the caller (which knows the recipient/genre)
+            // normalizes placeholders via normalizeSongTitle().
             title: song.title,
             coverImageUrl: song.image_url || song.image_large_url,
             duration: songDuration ? String(songDuration) : undefined,
@@ -739,13 +802,23 @@ export async function checkResultOnce(taskId: string): Promise<GenerateSongRespo
         };
       }
 
-      // Select the first song with audio_url.
-      // Prefer non-audiopipe URLs (CDN URLs) but fall back to any URL.
-      const completedSong = songs.find((s: any) => s.audio_url && !s.audio_url.includes('audiopipe'))
-        || songs.find((s: any) => s.audio_url);
+      // Select the first track that has a STABLE (non-audiopipe) audio URL. An
+      // audiopipe-only response means the CDN link isn't ready yet, so we treat the
+      // task as still generating and let the next poll pick it up — storing the
+      // expiring stream URL would hand the user a song that can never be played.
+      let completedSong: any = null;
+      let completedAudioUrl: string | null = null;
+      for (const s of songs) {
+        const url = pickPlayableAudioUrl(s);
+        if (url) {
+          completedSong = s;
+          completedAudioUrl = url;
+          break;
+        }
+      }
 
-      if (completedSong) {
-        log('Song generation complete! Audio URL:', completedSong.audio_url);
+      if (completedSong && completedAudioUrl) {
+        log('Song generation complete! Audio URL:', completedAudioUrl);
         log('Song status:', completedSong.status);
         log('Song object keys:', Object.keys(completedSong));
 
@@ -765,26 +838,37 @@ export async function checkResultOnce(taskId: string): Promise<GenerateSongRespo
           }
         }
 
-        // Lyrics: look in gpt_description_prompt first, then prompt, then lyrics
-        let songLyrics = '';
+        // Lyrics preference order: `lyrics` (the real lyric text) must win over
+        // `prompt`/`gpt_description_prompt`, which hold the INSTRUCTION we sent to
+        // generate the song. Those prompt fields are usually much longer than the
+        // lyrics, so a plain "longest string wins" scan would silently replace the
+        // lyrics with the user's prompt. Only fall back to the prompt fields when no
+        // real lyrics were returned.
+        const pickLongest = (key: string): string => {
+          let best = '';
+          for (const meta of allMetadataSources) {
+            const v = meta?.[key];
+            if (typeof v === 'string' && v.length > best.length) best = v;
+          }
+          return best;
+        };
+
         let lyricsSource = 'none';
-        for (const meta of allMetadataSources) {
-          if (meta.gpt_description_prompt && meta.gpt_description_prompt.length > songLyrics.length) {
-            songLyrics = meta.gpt_description_prompt;
-            lyricsSource = 'gpt_description_prompt';
-          }
-          if (meta.prompt && meta.prompt.length > songLyrics.length) {
-            songLyrics = meta.prompt;
-            lyricsSource = 'prompt';
-          }
-          if (meta.lyrics && meta.lyrics.length > songLyrics.length) {
-            songLyrics = meta.lyrics;
-            lyricsSource = 'lyrics';
-          }
+        let songLyrics = pickLongest('lyrics');
+        if (songLyrics) {
+          lyricsSource = 'lyrics';
+        } else {
+          songLyrics = pickLongest('prompt');
+          if (songLyrics) lyricsSource = 'prompt';
         }
-        // Fallback to top-level fields
         if (!songLyrics) {
-          songLyrics = completedSong.prompt || completedSong.lyrics || completedSong.description || '';
+          songLyrics = pickLongest('gpt_description_prompt');
+          if (songLyrics) lyricsSource = 'gpt_description_prompt';
+        }
+        // Fallback to top-level fields, same precedence.
+        if (!songLyrics) {
+          songLyrics =
+            completedSong.lyrics || completedSong.prompt || completedSong.description || '';
           if (songLyrics) lyricsSource = 'top-level';
         }
 
@@ -810,9 +894,11 @@ export async function checkResultOnce(taskId: string): Promise<GenerateSongRespo
 
         const result: GenerateSongResponse = {
           success: true,
-          audioUrl: completedSong.audio_url,
+          audioUrl: completedAudioUrl,
           requestId: taskId,
           lyrics: songLyrics,
+          // Raw upstream title; checkResultOnce has no recipient/genre context, so the
+          // caller normalizes placeholders via normalizeSongTitle().
           title: completedSong.title,
           coverImageUrl: completedSong.image_url || completedSong.image_large_url,
           duration: songDuration ? String(songDuration) : undefined,

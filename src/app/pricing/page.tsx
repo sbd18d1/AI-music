@@ -5,8 +5,16 @@ export const metadata: Metadata = {
   description: 'Limited-time offer - $5.00 per song (regularly $9.90). Create personalized AI-generated songs',
 };
 
-const PROMO_PRICE = '$4.90';
+const PROMO_PRICE = '$1.00';
 const REGULAR_PRICE = '$9.90';
+
+/** Derived from the two prices so the advertised discount can never drift out of sync. */
+const SAVE_PERCENT = (() => {
+  const regular = parseFloat(REGULAR_PRICE.replace(/[^0-9.]/g, ''));
+  const promo = parseFloat(PROMO_PRICE.replace(/[^0-9.]/g, ''));
+  if (!isFinite(regular) || !isFinite(promo) || regular <= 0 || promo >= regular) return null;
+  return Math.round(((regular - promo) / regular) * 100);
+})();
 
 export default function PricingPage() {
   return (
@@ -17,7 +25,9 @@ export default function PricingPage() {
           <p className="text-base-content/60 mb-8">Last updated: August 2026</p>
 
           <div className="bg-secondary/15 border-2 border-secondary rounded-xl p-4 text-center mb-8">
-            <p className="text-primary font-bold text-lg">🔥 Limited-Time Offer — Save 50%</p>
+            <p className="text-primary font-bold text-lg">
+              🔥 Limited-Time Offer{SAVE_PERCENT !== null ? ` — Save ${SAVE_PERCENT}%` : ''}
+            </p>
             <p className="text-base-content/80 text-sm mt-1">
               <span className="font-semibold">{REGULAR_PRICE}</span>{' '}
               <span className="inline-block px-1.5 py-0.5 mx-1 bg-primary text-primary-content text-xs rounded">Now</span>{' '}
@@ -107,7 +117,9 @@ export default function PricingPage() {
           <p className="text-base-content/60 mb-8">最后更新：2026年8月</p>
 
           <div className="bg-secondary/15 border-2 border-secondary rounded-xl p-4 text-center mb-8">
-            <p className="text-primary font-bold text-lg">🔥 限时优惠 — 立省 50%</p>
+            <p className="text-primary font-bold text-lg">
+              🔥 限时优惠{SAVE_PERCENT !== null ? ` — 立省 ${SAVE_PERCENT}%` : ''}
+            </p>
             <p className="text-base-content/80 text-sm mt-1">
               <span className="font-semibold">原价 {REGULAR_PRICE}</span>{' '}
               <span className="inline-block px-1.5 py-0.5 mx-1 bg-primary text-primary-content text-xs rounded">现在</span>{' '}

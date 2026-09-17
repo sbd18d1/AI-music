@@ -301,11 +301,18 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
         console.error('[AudioPlayer] Playback failed:', error.name, error.message, 'src:', audio.src, 'readyState:', audio.readyState, 'error:', audio.error);
         setIsPlaying(false);
         if (error.name === 'NotSupportedError') {
-          alert('Audio playback failed (source: ' + audio.src + '). The audio file may be unavailable. Please try generating a new song.');
+          // The usual cause is an expired/withdrawn audio link rather than a browser
+          // problem, so say what the user can actually do about it.
+          alert(
+            '这首歌的音频链接已失效（通常是因为链接过期）。请重新生成一首。\n\n' +
+              'This song\'s audio link has expired or is unavailable. Please generate a new song.'
+          );
         } else if (error.name === 'NotAllowedError') {
-          alert('Playback blocked by browser. Please click the play button again to allow audio.');
+          alert(
+            '浏览器阻止了播放，请再次点击播放按钮。\n\nPlayback was blocked by the browser — please click play again.'
+          );
         } else {
-          alert('Playback error: ' + error.message);
+          alert(`播放失败 / Playback failed: ${error.message}`);
         }
       });
     }

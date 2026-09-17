@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/db/client';
-import { checkResultOnce } from '@/lib/ai-music';
+import { checkResultOnce, normalizeSongTitle } from '@/lib/ai-music';
 import { ensureOrderEmailColumn } from '@/lib/ensure-coupon-table';
 
 export const dynamic = 'force-dynamic';
@@ -92,7 +92,12 @@ export async function GET(request: NextRequest) {
         status: order.status,
         audioUrl: audioUrlForFrontend,
         lyrics: order.lyrics,
-        title: order.title,
+        // Normalize here too, so orders stored before the placeholder fix still show a
+        // readable title instead of the upstream "unTitled".
+        title: normalizeSongTitle(order.title, {
+          recipientName: order.recipientName,
+          genre: order.genre,
+        }),
         coverImageUrl: order.coverImageUrl,
         duration: order.duration,
         customerEmail: order.customerEmail,

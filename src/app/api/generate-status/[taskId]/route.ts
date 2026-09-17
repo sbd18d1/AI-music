@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/db/client';
-import { checkResultOnce, isPlayableAudioUrl } from '@/lib/ai-music';
+import { checkResultOnce, isPlayableAudioUrl, normalizeSongTitle } from '@/lib/ai-music';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -100,7 +100,13 @@ export async function GET(
           status: 'success',
           audioUrl: finalAudioUrl,
           lyrics: result.lyrics || null,
-          title: result.title || null,
+          // Suno returns "unTitled" for unnamed tracks — replace it with a readable
+          // title derived from this order's recipient/genre.
+          title:
+            normalizeSongTitle(result.title, {
+              recipientName: order.recipientName,
+              genre: order.genre,
+            }) || null,
           coverImageUrl: result.coverImageUrl || null,
           duration: safeDuration,
         },
@@ -115,7 +121,10 @@ export async function GET(
         orderId: order.id,
         isPreview: !order.isFullVersion,
         lyrics: result.lyrics || '',
-        title: result.title || '',
+        title: normalizeSongTitle(result.title, {
+          recipientName: order.recipientName,
+          genre: order.genre,
+        }),
         coverImageUrl: result.coverImageUrl || '',
         duration: safeDuration,
       });

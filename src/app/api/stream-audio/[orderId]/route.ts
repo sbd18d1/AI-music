@@ -108,10 +108,29 @@ async function proxyRemoteAudio(remoteUrl: string, request: NextRequest) {
 
     // 200 = full file, 206 = partial (Range satisfied), both are OK
     if (!response.ok && response.status !== 206) {
-      console.error(`[stream-audio] Remote fetch failed: ${response.status} for ${remoteUrl}`);
+      // Suno's audiopipe stream URLs return 403 {"detail":"Invalid or expired stream
+      // URL"} once they age out. That is the single most common cause of "the song
+      // won't play", so log it distinctly and hand the client a 410 (gone) rather
+      // than a generic 500.
+      console.error(
+        `[stream-audio] Remote fetch failed: ${response.status} for ${remoteUrl}` +
+          (/audiopipe/i.test(remoteUrl) ? ' (audiopipe stream URL — expired)' : '')
+      );
+      const gone = response.status === 403 || response.status === 404 || /audiopipe/i.test(remoteUrl);
       return NextResponse.json(
         { error: 'Audio file is no longer available. Please regenerate.' },
-        { status: 410 }  // Gone - resource no longer available
+        { status: gone ? 410 : 502 } // 410 = gone; 502 = upstream problem
+      );
+    }
+
+    // Even with a 200, a JSON error body means the CDN answered with an error object
+    // (this is what audiopipe does before it flips to 403).
+    const upstreamType = response.headers.get('content-type') || '';
+    if (upstreamType.includes('application/json')) {
+      console.error(`[stream-audio] Upstream returned JSON instead of audio: ${remoteUrl}`);
+      return NextResponse.json(
+        { error: 'Audio file is no longer available. Please regenerate.' },
+        { status: 410 }
       );
     }
 
