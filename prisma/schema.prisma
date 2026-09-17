@@ -31,6 +31,8 @@ model Order {
   trialOrderId       String?
   couponCode         String?   // internal code of the coupon auto-applied to this order (audit)
   emailSentAt        DateTime? // set once the song email has been delivered (idempotency)
+  amountPaid         Float?    // actual captured amount (0 when a coupon fully covered it)
+  currency           String?   // ISO currency of amountPaid, e.g. "USD"
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -51,6 +53,34 @@ model TrialUsage {
   @@index([ipAddress])
   @@index([deviceId])
   @@index([usedAt])
+}
+
+// First-party analytics. One narrow table serving BOTH page views and named
+// click/conversion beacons, so a single GROUP BY can produce per-path funnels.
+// Geo is country/city/region only, resolved from Vercel's request headers at write
+// time. Raw IP is intentionally NOT stored here (see Order.ipAddress).
+model Visit {
+  id          String   @id @default(uuid())
+  type        String   @default("pageview") // pageview | trial_start | checkout_start | share | download
+  path        String
+  referrer    String?  // normalized host only, e.g. "google.com"
+  host        String?
+  country     String?  // ISO-3166 alpha-2 from x-vercel-ip-country
+  region      String?  // from x-vercel-ip-country-region
+  city        String?  // from x-vercel-ip-city (URL-encoded by Vercel)
+  deviceId    String?  // getDeviceId() fingerprint, links Visit <-> Order.deviceId
+  sessionId   String?  // random per-tab id, sessionizes the log
+  isBot       Boolean  @default(false)
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([type, createdAt])
+  @@index([path])
+  @@index([sessionId])
+  @@index([country])
 }
 
 model SongConfigDimension {

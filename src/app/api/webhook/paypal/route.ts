@@ -4,6 +4,8 @@ import { generateSong } from '@/lib/ai-music';
 import { sendSongEmail } from '@/lib/email';
 import { consumeCouponForOrder } from '@/lib/coupon-use';
 import { ensureOrderEmailColumn } from '@/lib/ensure-coupon-table';
+import { ensureOrderAmountColumn } from '@/lib/ensure-analytics-table';
+import { extractCapturedAmount } from '@/lib/money';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -133,6 +135,7 @@ export async function POST(request: NextRequest) {
   const reqId = `[${new Date().toISOString()}] [paypal:webhook]`;
   try {
     await ensureOrderEmailColumn();
+    await ensureOrderAmountColumn();
     const body = await request.text();
 
     const verified = await verifyWebhookSignature(body, request.headers);
@@ -172,6 +175,15 @@ export async function POST(request: NextRequest) {
       const customerEmail =
         ((payload.resource.payer as { email_address?: string } | undefined)?.email_address) ||
         order.customerEmail;
+
+      // Actual captured amount from the webhook resource, for the payment monitor.
+      const captured = extractCapturedAmount(payload);
+      const paidData = captured
+        ? { amountPaid: captured.amount, currency: captured.currency }
+        : {};
+      if (captured) {
+        console.log(`${reqId} Captured amount=${captured.amount} ${captured.currency}`);
+      }
 
       // Trial-song path
       let trialSong: {
@@ -214,6 +226,7 @@ export async function POST(request: NextRequest) {
             lyrics: trialSong.lyrics,
             title: trialSong.title,
             coverImageUrl: trialSong.coverImageUrl,
+            ...paidData,
             duration: trialSong.duration,
             customerEmail: customerEmail || order.customerEmail,
           },
@@ -286,6 +299,7 @@ export async function POST(request: NextRequest) {
               lyrics: result.lyrics || null,
               title: result.title || null,
               coverImageUrl: result.coverImageUrl || null,
+              ...paidData,
               duration: result.duration || null,
               aiRequestId: result.requestId || null,
             },

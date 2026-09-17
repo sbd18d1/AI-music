@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { getThemeName } from '@/lib/theme';
 import Header from '@/components/Header';
+import Analytics from '@/components/Analytics';
 
 export const metadata: Metadata = {
   title: 'AI Personalized Song Generator',
@@ -56,6 +57,8 @@ fbq('track', 'PageView');
           />
         </noscript>
         {/* End Meta Pixel Code */}
+        {/* First-party page-view tracking (beacon; never blocks rendering) */}
+        <Analytics />
         <Header />
         {children}
       </body>

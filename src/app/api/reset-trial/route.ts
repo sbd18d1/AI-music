@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/db/client';
+import { tursoClient } from '@/lib/turso-client';
 import { ensureCouponTable } from '@/lib/ensure-coupon-table';
+import { ensureVisitTable } from '@/lib/ensure-analytics-table';
 
 const resetSchema = z.object({
   deviceId: z.string().max(200).optional(),
@@ -67,7 +69,20 @@ export async function POST(request: NextRequest) {
       voidedCoupons = res.count;
     }
 
-    console.log(`[${new Date().toISOString()}] Reset complete: deleted ${deletedUsage.count} trial usage(s) and ${deletedOrders.count} trial order(s), voided ${voidedCoupons} coupon(s) for device: ${deviceId || 'none'}, IP: ${ipAddress}`);
+    // Analytics rows carry the same deviceId, so a device reset (the user's route to
+    // erasing their data) must clear them too — otherwise Visit becomes the one place
+    // user-linked data survives a reset.
+    let deletedVisits = 0;
+    if (deviceId) {
+      await ensureVisitTable();
+      const res = await tursoClient.execute({
+        sql: `DELETE FROM "Visit" WHERE "deviceId" = ?`,
+        args: [deviceId],
+      });
+      deletedVisits = res.rowsAffected;
+    }
+
+    console.log(`[${new Date().toISOString()}] Reset complete: deleted ${deletedUsage.count} trial usage(s) and ${deletedOrders.count} trial order(s), voided ${voidedCoupons} coupon(s), deleted ${deletedVisits} visit(s) for device: ${deviceId || 'none'}, IP: ${ipAddress}`);
 
     return NextResponse.json({
       success: true,
@@ -75,6 +90,7 @@ export async function POST(request: NextRequest) {
         trialUsage: deletedUsage.count,
         trialOrders: deletedOrders.count,
         coupons: voidedCoupons,
+        visits: deletedVisits,
       },
     });
   } catch (error) {

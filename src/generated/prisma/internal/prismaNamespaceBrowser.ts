@@ -53,6 +53,7 @@ export const AnyNull = runtime.AnyNull
 export const ModelName = {
   Order: 'Order',
   TrialUsage: 'TrialUsage',
+  Visit: 'Visit',
   SongConfigDimension: 'SongConfigDimension',
   SongConfigOption: 'SongConfigOption',
   Coupon: 'Coupon'
@@ -95,6 +96,8 @@ export const OrderScalarFieldEnum = {
   trialOrderId: 'trialOrderId',
   couponCode: 'couponCode',
   emailSentAt: 'emailSentAt',
+  amountPaid: 'amountPaid',
+  currency: 'currency',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -110,6 +113,27 @@ export const TrialUsageScalarFieldEnum = {
 } as const
 
 export type TrialUsageScalarFieldEnum = (typeof TrialUsageScalarFieldEnum)[keyof typeof TrialUsageScalarFieldEnum]
+
+
+export const VisitScalarFieldEnum = {
+  id: 'id',
+  type: 'type',
+  path: 'path',
+  referrer: 'referrer',
+  host: 'host',
+  country: 'country',
+  region: 'region',
+  city: 'city',
+  deviceId: 'deviceId',
+  sessionId: 'sessionId',
+  isBot: 'isBot',
+  utmSource: 'utmSource',
+  utmMedium: 'utmMedium',
+  utmCampaign: 'utmCampaign',
+  createdAt: 'createdAt'
+} as const
+
+export type VisitScalarFieldEnum = (typeof VisitScalarFieldEnum)[keyof typeof VisitScalarFieldEnum]
 
 
 export const SongConfigDimensionScalarFieldEnum = {

@@ -4,6 +4,8 @@ import { generateSong } from '@/lib/ai-music';
 import { sendSongEmail } from '@/lib/email';
 import { consumeCouponForOrder } from '@/lib/coupon-use';
 import { ensureOrderEmailColumn } from '@/lib/ensure-coupon-table';
+import { ensureOrderAmountColumn } from '@/lib/ensure-analytics-table';
+import { extractCapturedAmount } from '@/lib/money';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -50,6 +52,7 @@ export async function POST(request: NextRequest) {
   const reqId = `[${new Date().toISOString()}] [paypal:capture-order]`;
   try {
     await ensureOrderEmailColumn();
+    await ensureOrderAmountColumn();
     const body = (await request.json()) as CaptureBody;
     const { orderId, paymentOrderId } = body;
 
@@ -159,6 +162,17 @@ export async function POST(request: NextRequest) {
     const captureData = await captureResponse.json().catch(() => ({}));
     const customerEmail = captureData.payer?.email_address || order.customerEmail;
 
+    // The actually-captured amount, for the payment monitor's ledger. Falls back to the
+    // value create-order already recorded when PayPal's response omits it (e.g. the
+    // ORDER_ALREADY_CAPTURED path above returns an error body, not a capture).
+    const captured = extractCapturedAmount(captureData);
+    const paidData = captured
+      ? { amountPaid: captured.amount, currency: captured.currency }
+      : {};
+    if (captured) {
+      console.log(`${reqId} Captured amount=${captured.amount} ${captured.currency}`);
+    }
+
     console.log(`${reqId} PayPal captured, payer email=${captureData.payer?.email_address || 'N/A'}`);
 
     // Step 2: Look for existing trial song (no need to regenerate)
@@ -216,6 +230,7 @@ export async function POST(request: NextRequest) {
           coverImageUrl: trialSong.coverImageUrl,
           duration: trialSong.duration,
           customerEmail: customerEmail || order.customerEmail,
+          ...paidData,
         },
       });
 
@@ -309,6 +324,7 @@ export async function POST(request: NextRequest) {
             coverImageUrl: result.coverImageUrl || null,
             duration: result.duration || null,
             aiRequestId: result.requestId || null,
+            ...paidData,
           },
         });
 

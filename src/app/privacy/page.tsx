@@ -24,6 +24,7 @@ export default function PrivacyPage() {
                 <li><strong>Order Information:</strong> When you create a song, we collect the song description, recipient name, and genre preferences.</li>
                 <li><strong>Email Address:</strong> If you choose to receive your song via email, we collect your email address. This is optional and only used for song delivery.</li>
                 <li><strong>Payment Information:</strong> We do not store your payment card details. Payments are processed securely by PayPal. We only receive payment status notifications from these providers.</li>
+                <li><strong>Approximate Location:</strong> We record the country, region and city associated with your visit, derived by our hosting provider from your network address. We do not store your IP address for this purpose, and this information is not linked to your identity.</li>
               </ul>
             </div>
 
@@ -79,7 +80,7 @@ export default function PrivacyPage() {
                 <li>Maintain your session and trial status</li>
                 <li>Store your device fingerprint for trial limit enforcement</li>
                 <li>Remember your song preferences and generated songs</li>
-                <li>Improve our service through analytics</li>
+                <li>Measure traffic and clicks to improve our service through analytics — this uses a random per-visit session identifier kept in sessionStorage, which is cleared when you close the browser tab</li>
               </ul>
               <p className="mt-2">You can disable cookies in your browser settings, but this may affect the functionality of our service.</p>
             </div>
@@ -87,7 +88,7 @@ export default function PrivacyPage() {
             <div>
               <h2 className="text-xl font-semibold text-base-content mb-2">7. Data Retention</h2>
               <p>
-                We retain order data for as long as necessary to provide our service and comply with legal obligations. Trial usage records are retained indefinitely to prevent abuse. You may request deletion of your data at any time.
+                We retain order data for as long as necessary to provide our service and comply with legal obligations. Trial usage records are retained indefinitely to prevent abuse. Analytics records (traffic and click logs, including approximate location) are retained for up to 12 months. You may request deletion of your data at any time.
               </p>
             </div>
 
@@ -128,6 +129,7 @@ export default function PrivacyPage() {
                 <li><strong>订单信息：</strong>创建歌曲时，我们收集歌曲描述、收件人姓名和风格偏好。</li>
                 <li><strong>电子邮箱：</strong>如您选择通过邮件接收歌曲，我们会收集您的邮箱地址。此为可选项，仅用于歌曲交付。</li>
                 <li><strong>付款信息：</strong>我们不存储您的支付卡详情。付款由 PayPal 安全处理，我们仅接收这些提供商的付款状态通知。</li>
+                <li><strong>大致地理位置：</strong>我们会记录您访问时对应的国家、地区与城市，由我们的托管服务商根据您的网络地址推导得出。我们不会为此存储您的 IP 地址，该信息也不会与您的身份关联。</li>
               </ul>
             </div>
 
@@ -181,7 +183,7 @@ export default function PrivacyPage() {
                 <li>维持您的会话和试用状态</li>
                 <li>存储设备指纹以执行试用限制</li>
                 <li>记住您的歌曲偏好和已生成的歌曲</li>
-                <li>通过分析改进服务</li>
+                <li>通过统计访问量与点击量来改进服务——这使用一个随机的单次会话标识符，保存在 sessionStorage 中，关闭浏览器标签页即清除</li>
               </ul>
               <p className="mt-2">您可以在浏览器设置中禁用 Cookie，但这可能影响服务功能。</p>
             </div>
@@ -189,7 +191,7 @@ export default function PrivacyPage() {
             <div>
               <h2 className="text-xl font-semibold text-base-content mb-2">七、数据保留</h2>
               <p>
-                我们在提供服务和履行法律义务所需的期限内保留订单数据。试用使用记录将无限期保留以防止滥用。您可随时请求删除数据。
+                我们在提供服务和履行法律义务所需的期限内保留订单数据。试用使用记录将无限期保留以防止滥用。统计记录（访问与点击日志，含大致地理位置）最多保留 12 个月。您可随时请求删除数据。
               </p>
             </div>
 

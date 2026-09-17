@@ -2,8 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/db/client';
 import { z } from 'zod';
 import { generateSong } from '@/lib/ai-music';
-import { ensureCouponTable, ensureOrderCouponColumn } from '@/lib/ensure-coupon-table';
 import { consumeCouponForOrder } from '@/lib/coupon-use';
+import {
+  REGULAR_PRICE,
+  PURCHASE_PRICE,
+  COUPON_VALUE,
+  PURCHASE_CURRENCY,
+} from '@/lib/money';
+import { ensureCouponTable, ensureOrderCouponColumn } from '@/lib/ensure-coupon-table';
+import { ensureOrderAmountColumn } from '@/lib/ensure-analytics-table';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -25,13 +32,7 @@ const CreateOrderSchema = z.object({
   deviceId: z.string().max(200).optional(), // browser fingerprint (getDeviceId) — coupon owner
 });
 
-// Regular (list) price for a full song — shown to users as the struck-through original.
-const REGULAR_PRICE = '9.90';
-// Limited-time promo price actually charged for a full song (USD).
-const PURCHASE_PRICE = '4.90';
-// Coupon deduction per order (a fingerprint-bound coupon automatically subtracts this).
-const COUPON_VALUE = 0.5;
-const PURCHASE_CURRENCY = 'USD';
+// Pricing constants live in @/lib/money so create-order / capture-order / webhook agree.
 
 interface PayPalConfig {
   clientId: string;
@@ -153,6 +154,7 @@ export async function POST(request: NextRequest) {
     // song, we skip PayPal and unlock it for free (see "free" branch below).
     await ensureCouponTable();
     await ensureOrderCouponColumn();
+    await ensureOrderAmountColumn();
     let appliedCouponValue = 0;
     let couponCodeForOrder: string | null = null;
     if (deviceId) {
@@ -183,6 +185,10 @@ export async function POST(request: NextRequest) {
         songConfig: songConfig ? JSON.stringify(songConfig) : null,
         status: isFree ? 'processing' : 'pending',
         isFullVersion: true,
+        // Recorded up-front so a coupon-fully-covered ($0) order still carries a real
+        // amount; the PayPal branch overwrites this with the captured value.
+        amountPaid: isFree ? 0 : Number(payAmount),
+        currency: PURCHASE_CURRENCY,
         trialOrderId: trialOrderId || null,
         ipAddress: trialOrderData?.ipAddress || null,
         deviceId: deviceId || trialOrderData?.deviceId || null,

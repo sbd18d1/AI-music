@@ -9,6 +9,7 @@ import ShareModal from '@/components/ShareModal';
 import { DEFAULT_SELECTION, isSelectionComplete, deriveGenreFromConfig, type SongConfigSelection } from '@/lib/song-config';
 import { getDeviceId } from '@/lib/device-id';
 import { canUseNativeShare, openNativeShare, type SharePayload } from '@/lib/share';
+import { track } from '@/lib/analytics-client';
 
 type Style = 'Classic Rock' | 'Country & Folk' | 'Blues & Soul' | '60s/70s Pop Ballad';
 type ArtistStyle = 'None' | 'Frank Sinatra' | 'Elvis Presley' | 'The Beatles' | 'The Rolling Stones' | 'Bob Dylan' | 'Simon & Garfunkel' | 'Aretha Franklin' | 'Neil Diamond' | 'Johnny Cash';
@@ -206,6 +207,7 @@ export default function Home() {
         return;
       }
 
+      track('trial_start', '/');
       setIsLoading(true);
     setShowResult(false);
     setErrorMessage('');
@@ -430,6 +432,9 @@ export default function Home() {
 
   const handlePayPalRedirect = useCallback(async (buildPayload: () => Record<string, unknown>) => {
     if (isPaying) return; // guard against double-submit while redirecting
+    // Checkout is initiated here (both "Get Full Song" and "Create Full Song" funnel
+    // through this), so a single beacon covers both without double-counting.
+    track('checkout_start', '/');
     setIsPaying(true);
     try {
       console.log('[PayPal] Creating order...');
@@ -521,6 +526,7 @@ export default function Home() {
   // desktop where navigator.share isn't available. Awarding the coupon fires whenever
   // the user actually completes/makes a share choice.
   const handleOpenShare = useCallback((payload: SharePayload) => {
+    track('share', window.location.pathname);
     openNativeShare(payload).then((usedNative) => {
       if (!usedNative) {
         setSharePayload(payload);
@@ -568,6 +574,7 @@ export default function Home() {
   };
 
   const downloadAudio = async () => {
+    track('download', '/');
     try {
       const response = await fetch(`/api/download-audio?url=${encodeURIComponent(audioUrl ?? '')}&filename=${encodeURIComponent(songTitle ?? 'song')}`);
       if (!response.ok) throw new Error('Failed to download');

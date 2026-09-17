@@ -28,6 +28,11 @@ export type Order = Prisma.OrderModel
  */
 export type TrialUsage = Prisma.TrialUsageModel
 /**
+ * Model Visit
+ * 
+ */
+export type Visit = Prisma.VisitModel
+/**
  * Model SongConfigDimension
  * 
  */

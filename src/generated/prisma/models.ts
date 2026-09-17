@@ -10,6 +10,7 @@
  */
 export type * from './models/Order'
 export type * from './models/TrialUsage'
+export type * from './models/Visit'
 export type * from './models/SongConfigDimension'
 export type * from './models/SongConfigOption'
 export type * from './models/Coupon'

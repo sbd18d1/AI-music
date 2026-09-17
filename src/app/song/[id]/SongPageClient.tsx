@@ -5,6 +5,7 @@ import { Music, Clock, ArrowLeft, Share2 } from 'lucide-react';
 import VintageAudioPlayer from '@/components/VintageAudioPlayer';
 import ShareModal from '@/components/ShareModal';
 import { openNativeShare, type SharePayload } from '@/lib/share';
+import { track } from '@/lib/analytics-client';
 
 interface SongData {
   id: string;
@@ -23,6 +24,7 @@ export default function SongPageClient({ songData }: { songData: SongData }) {
   const [sharePayload, setSharePayload] = useState<SharePayload>({ url: '', title: '', text: '' });
 
   const handleShare = async () => {
+    track('share', window.location.pathname);
     const payload: SharePayload = {
       url: `${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/song/${songData.id}`,
       title: `🎵 ${songData.title} — a custom song made on Smart Music Lab`,
