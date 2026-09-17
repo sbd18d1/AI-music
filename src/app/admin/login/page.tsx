@@ -35,10 +35,16 @@ export default function AdminLoginPage() {
         window.location.href = nextPath;
         return;
       }
-      setError(data.error || 'Login failed');
+      setError(
+        res.status === 401
+          ? '口令错误，请重新输入'
+          : data.error === 'Admin dashboard is not configured.'
+            ? '后台未配置 ADMIN_SECRET，暂时无法访问'
+            : '登录失败，请重试'
+      );
     } catch (err) {
       console.error('[admin:login] error:', err);
-      setError('Login failed. Please try again.');
+      setError('登录失败，请重试');
     } finally {
       setIsSubmitting(false);
     }
@@ -52,13 +58,13 @@ export default function AdminLoginPage() {
             <span className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
               <Lock className="w-6 h-6 text-primary" />
             </span>
-            <h1 className="font-serif text-2xl font-bold text-base-content">Admin</h1>
+            <h1 className="font-serif text-2xl font-bold text-base-content">数据监控后台</h1>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-base-content/80 font-semibold mb-2" htmlFor="secret">
-                Access secret
+                访问口令
               </label>
               <input
                 id="secret"
@@ -67,7 +73,7 @@ export default function AdminLoginPage() {
                 onChange={(e) => setSecret(e.target.value)}
                 autoComplete="current-password"
                 className="w-full bg-white border-2 border-base-300 rounded-lg px-4 py-3 text-base text-base-content placeholder-base-content/30 focus:outline-none focus:border-primary"
-                placeholder="Enter admin secret"
+                placeholder="请输入后台口令"
                 required
               />
             </div>
@@ -86,16 +92,16 @@ export default function AdminLoginPage() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Signing in...
+                  登录中…
                 </>
               ) : (
-                'Sign in'
+                '登录'
               )}
             </button>
           </form>
 
           <p className="text-base-content/50 text-xs mt-6 text-center">
-            Internal monitoring dashboard. Requires the ADMIN_SECRET configured on the server.
+            内部数据监控后台，口令由服务器上的 ADMIN_SECRET 环境变量配置。
           </p>
         </div>
       </div>

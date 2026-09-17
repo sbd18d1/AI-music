@@ -8,12 +8,26 @@ export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 export const maxDuration = 60;
 
-const RANGES: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90 };
+/**
+ * Preset ranges (in days, inclusive of today) plus `custom`, which supplies explicit
+ * `from`/`to` dates. `all` has no lower bound.
+ */
+const RANGES: Record<string, number> = { '1d': 1, '3d': 3, '7d': 7, '30d': 30 };
 
-/** YYYY-MM-DD (UTC) for `days` ago, matching how SQLite's date() buckets rows. */
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** YYYY-MM-DD (UTC) for `offsetDays` ago, matching how SQLite's date() buckets rows. */
 function isoDay(offsetDays: number): string {
   const d = new Date(Date.now() - offsetDays * 86_400_000);
   return d.toISOString().slice(0, 10);
+}
+
+/** Whole days between two YYYY-MM-DD dates, inclusive. */
+function daysBetween(from: string, to: string): number {
+  const a = Date.parse(`${from}T00:00:00Z`);
+  const b = Date.parse(`${to}T00:00:00Z`);
+  if (!isFinite(a) || !isFinite(b)) return 1;
+  return Math.max(1, Math.round((b - a) / 86_400_000) + 1);
 }
 
 /** Zero-fill a day-keyed series so a missing day renders as 0, not as a gap. */
@@ -21,13 +35,17 @@ function fillDays<T extends Record<string, unknown>>(
   rows: T[],
   days: number | null,
   make: (day: string) => T,
-  key = 'day'
+  key = 'day',
+  endDay?: string
 ): T[] {
   if (days === null) return rows; // 'all' → return whatever exists
   const byDay = new Map(rows.map((r) => [String(r[key]), r]));
   const out: T[] = [];
+  // Anchor the fill to the range's end day so a custom past window isn't zero-padded
+  // out to today.
+  const anchor = endDay ? Date.parse(`${endDay}T00:00:00Z`) : Date.now();
   for (let i = days - 1; i >= 0; i--) {
-    const day = isoDay(i);
+    const day = new Date(anchor - i * 86_400_000).toISOString().slice(0, 10);
     out.push(byDay.get(day) ?? make(day));
   }
   return out;
@@ -52,9 +70,48 @@ export async function GET(request: NextRequest) {
 
   const reqId = `[${new Date().toISOString()}] [admin:stats]`;
   try {
-    const rangeParam = new URL(request.url).searchParams.get('range') || '30d';
-    const days = RANGES[rangeParam] ?? null; // null = all time
-    const since = days ? `date('now','-${days - 1} days')` : null;
+    const params = new URL(request.url).searchParams;
+    const rangeParam = params.get('range') || '7d';
+
+    // Resolve the window. Only preset ids and validated YYYY-MM-DD dates ever reach the
+    // SQL below, so the interpolation there is safe.
+    let days: number | null;
+    let fromDay: string | null; // inclusive lower bound (YYYY-MM-DD), null = unbounded
+    let toDay: string; // inclusive upper bound (YYYY-MM-DD)
+
+    const fromParam = params.get('from');
+    const toParam = params.get('to');
+    if (rangeParam === 'custom' && fromParam && toParam && DAY_RE.test(fromParam) && DAY_RE.test(toParam)) {
+      // Normalize a reversed selection rather than rejecting it.
+      const lo = fromParam <= toParam ? fromParam : toParam;
+      const hi = fromParam <= toParam ? toParam : fromParam;
+      const span = daysBetween(lo, hi);
+      if (span > 366) {
+        // Cap a very wide custom range so the chart stays readable.
+        days = 366;
+        fromDay = new Date(Date.parse(`${hi}T00:00:00Z`) - 365 * 86_400_000)
+          .toISOString()
+          .slice(0, 10);
+      } else {
+        days = span;
+        fromDay = lo;
+      }
+      toDay = hi;
+    } else if (rangeParam === 'all') {
+      days = null;
+      fromDay = null;
+      toDay = isoDay(0);
+    } else {
+      const preset = RANGES[rangeParam] ?? RANGES['7d'];
+      days = preset;
+      fromDay = isoDay(preset - 1);
+      toDay = isoDay(0);
+    }
+
+    // Inclusive upper bound → exclusive for the SQL comparison.
+    const endExclusive = new Date(Date.parse(`${toDay}T00:00:00Z`) + 86_400_000)
+      .toISOString()
+      .slice(0, 10);
 
     // Indexes are created here (the cold path) rather than on every page-view beacon.
     await ensureVisitTable();
@@ -66,15 +123,23 @@ export async function GET(request: NextRequest) {
     await ensureOrderCouponColumn();
     await ensureOrderEmailColumn();
 
-    // Window filter clause shared by every query. `since` is derived from a fixed
-    // integer map, never from user input, so interpolation is safe here.
-    const vWindow = since ? `AND "createdAt" >= ${since}` : '';
-    const oWindow = since ? `AND "createdAt" >= ${since}` : '';
-    const oUpdWindow = since ? `AND "updatedAt" >= ${since}` : '';
+    // Window clauses shared by every query. `fromDay`/`endExclusive`/`toDay` are either
+    // preset-derived or validated YYYY-MM-DD strings, never raw user input, so the
+    // interpolation below is safe.
+    const lower = fromDay ? `AND "createdAt" >= '${fromDay}'` : '';
+    const lowerUpd = fromDay ? `AND "updatedAt" >= '${fromDay}'` : '';
+    const upper = `AND "createdAt" < '${endExclusive}'`;
+    const upperUpd = `AND "updatedAt" < '${endExclusive}'`;
 
-    // Previous equal-length window, for delta tiles.
+    const vWindow = `${lower} ${upper}`;
+    const oWindow = `${lower} ${upper}`;
+    const oUpdWindow = `${lowerUpd} ${upperUpd}`;
+
+    // Previous equal-length window immediately before this one, for delta tiles.
     const prevWindow = days
-      ? `AND "createdAt" >= date('now','-${days * 2 - 1} days') AND "createdAt" < date('now','-${days - 1} days')`
+      ? `AND "createdAt" >= '${new Date(Date.parse(`${fromDay}T00:00:00Z`) - days * 86_400_000)
+          .toISOString()
+          .slice(0, 10)}' AND "createdAt" < '${fromDay}'`
       : `AND 1 = 0`;
 
     const exec = (sql: string, args: (string | number)[] = []) => tursoClient.execute({ sql, args });
@@ -92,6 +157,7 @@ export async function GET(request: NextRequest) {
       totalsRes,
       prevTotalsRes,
       recentRes,
+      paymentsRes,
     ] = await Promise.all([
       exec(`SELECT strftime('%Y-%m-%d', "createdAt") AS day,
                    COUNT(*) AS views,
@@ -191,6 +257,24 @@ export async function GET(request: NextRequest) {
             FROM "Visit"
             WHERE "isBot" = 0 ${vWindow}
             ORDER BY "createdAt" DESC LIMIT 50`),
+
+      // Paid orders, so the dashboard can list them and open a detail view per row.
+      // Location lives on Visit (Order has no geo columns), so join the buyer's most
+      // recent visit; it may be null for older orders placed before tracking existed.
+      exec(`SELECT o."id", o."status", o."amountPaid", o."currency", o."customerEmail",
+                   o."couponCode", o."trialOrderId", o."paypalOrderId", o."genre",
+                   o."ipAddress", o."deviceId", o."recipientName", o."title",
+                   strftime('%Y-%m-%dT%H:%M:%SZ', o."createdAt") AS createdAt,
+                   strftime('%Y-%m-%dT%H:%M:%SZ', o."updatedAt") AS updatedAt,
+                   (SELECT v."country" FROM "Visit" v
+                     WHERE v."deviceId" = o."deviceId" AND v."isBot" = 0
+                     ORDER BY v."createdAt" DESC LIMIT 1) AS country,
+                   (SELECT v."city" FROM "Visit" v
+                     WHERE v."deviceId" = o."deviceId" AND v."isBot" = 0
+                     ORDER BY v."createdAt" DESC LIMIT 1) AS city
+            FROM "Order" o
+            WHERE o."isFullVersion" = 1 AND o."status" = 'success' ${oUpdWindow.replace(/"([a-zA-Z]+)"/g, 'o."$1"')}
+            ORDER BY o."updatedAt" DESC LIMIT 200`),
     ]);
 
     const r = (res: { rows: unknown[] }) => res.rows as unknown as Row[];
@@ -203,7 +287,9 @@ export async function GET(request: NextRequest) {
         events: num(row.events),
       })),
       days,
-      (day) => ({ day, views: 0, visitors: 0, events: 0 })
+      (day) => ({ day, views: 0, visitors: 0, events: 0 }),
+      'day',
+      toDay
     );
 
     const gensByDay = fillDays(
@@ -213,7 +299,9 @@ export async function GET(request: NextRequest) {
         paidCalls: num(row.paidCalls),
       })),
       days,
-      (day) => ({ day, trialCalls: 0, paidCalls: 0 })
+      (day) => ({ day, trialCalls: 0, paidCalls: 0 }),
+      'day',
+      toDay
     );
 
     const outcomesByDay = fillDays(
@@ -224,7 +312,9 @@ export async function GET(request: NextRequest) {
         inFlight: num(row.inFlight),
       })),
       days,
-      (day) => ({ day, success: 0, failed: 0, inFlight: 0 })
+      (day) => ({ day, success: 0, failed: 0, inFlight: 0 }),
+      'day',
+      toDay
     );
 
     const freeByDayMap = new Map(
@@ -240,7 +330,9 @@ export async function GET(request: NextRequest) {
         freeViaCoupon: freeByDayMap.get(String(row.day)) ?? 0,
       })),
       days,
-      (day) => ({ day, payments: 0, revenue: 0, discounted: 0, fromTrial: 0, freeViaCoupon: 0 })
+      (day) => ({ day, payments: 0, revenue: 0, discounted: 0, fromTrial: 0, freeViaCoupon: 0 }),
+      'day',
+      toDay
     );
 
     // Geo: one query grouped by country+city, split here so a city always has its country.
@@ -307,12 +399,14 @@ export async function GET(request: NextRequest) {
       revenue: Math.round(num(p.revenue) * 100) / 100,
     };
 
-    // The 7d range has no meaningful baseline; say so rather than showing a fake delta.
+    // 'all' has no preceding window, so there is no baseline for a delta.
     const hasPrevious = days !== null;
 
     return NextResponse.json({
       success: true,
       range: days ? rangeParam : 'all',
+      // The resolved window, so the UI can display exactly what is being shown.
+      window: { fromDay, toDay, days },
       // Shape is forward-compatible with a future daily-rollup table.
       visitsByDay,
       generationsByDay: gensByDay,
@@ -332,6 +426,27 @@ export async function GET(request: NextRequest) {
       funnel,
       totals,
       previousTotals: hasPrevious ? previousTotals : null,
+      // Successful paid orders in the window. `amountPaid` is null for orders placed
+      // before that column existed, so the UI labels those as unknown rather than $0.
+      payments: r(paymentsRes).map((row) => ({
+        id: String(row.id),
+        status: String(row.status),
+        amountPaid: row.amountPaid === null || row.amountPaid === undefined ? null : num(row.amountPaid),
+        currency: row.currency ? String(row.currency) : null,
+        customerEmail: row.customerEmail ? String(row.customerEmail) : null,
+        couponCode: row.couponCode ? String(row.couponCode) : null,
+        fromTrial: !!row.trialOrderId,
+        paypalOrderId: row.paypalOrderId ? String(row.paypalOrderId) : null,
+        genre: row.genre ? String(row.genre) : null,
+        country: row.country ? String(row.country) : null,
+        city: row.city ? String(row.city) : null,
+        ipAddress: row.ipAddress ? String(row.ipAddress) : null,
+        deviceId: row.deviceId ? String(row.deviceId) : null,
+        recipientName: row.recipientName ? String(row.recipientName) : null,
+        title: row.title ? String(row.title) : null,
+        createdAt: row.createdAt ? String(row.createdAt) : null,
+        updatedAt: row.updatedAt ? String(row.updatedAt) : null,
+      })),
       recent: r(recentRes).map((row) => ({
         type: String(row.type),
         path: String(row.path),
