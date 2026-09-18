@@ -148,11 +148,10 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
       clearInterval(watermarkTimerRef.current);
     }
 
-    // Play once immediately so every unpaid preview carries the watermark from the
-    // start. Previously the first play only happened after a full 12s interval tick,
-    // so short listens (and any interval blocked by iOS) played clean.
-    playWatermark();
-
+    // Deliberately do NOT play on start: firing the watermark the instant playback
+    // begins is jarring and ruins the first impression of the song. The watermark
+    // lands on the interval ticks instead, so a preview shorter than one interval
+    // (12s) simply plays clean — an acceptable trade for not startling the user.
     const scheduleWatermark = () => {
       if (watermarkLoaded) {
         watermarkTimerRef.current = setInterval(() => {
