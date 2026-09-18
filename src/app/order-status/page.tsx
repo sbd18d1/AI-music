@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Loader2, Check, X, Music, Clock, ArrowLeft, Download, Mail } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Loader2, Check, X, Music, Clock, ArrowLeft, Download, Mail, Share2 } from 'lucide-react';
+import ShareModal from '@/components/ShareModal';
+import { openNativeShare, type SharePayload } from '@/lib/share';
 
 interface Order {
   id: string;
@@ -28,6 +30,11 @@ export default function OrderStatus() {
   const [emailInput, setEmailInput] = useState('');
   const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [emailError, setEmailError] = useState('');
+
+  // Share (native sheet on mobile, platform picker modal on desktop) — same UX as the
+  // homepage's share button, so the post-payment and home flows behave identically.
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sharePayload, setSharePayload] = useState<SharePayload>({ url: '', title: '', text: '' });
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -161,6 +168,25 @@ export default function OrderStatus() {
     }
   }, [order, autoDownloaded]);
 
+  // Open the OS share sheet on mobile (lets the user pick Facebook/WhatsApp/Messages/
+  // etc. and choose post-or-direct-message in the target app); fall back to the in-app
+  // platform picker on desktop where navigator.share isn't available.
+  const handleOpenShare = useCallback(() => {
+    if (!order) return;
+    const base = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000';
+    const payload: SharePayload = {
+      url: `${base}/song/${order.id}`,
+      title: `🎵 ${order.title || 'A custom song'} — made on Smart Music Lab`,
+      text: `Listen to this special song for ${order.recipientName}! Made with love on Smart Music Lab.`,
+    };
+    openNativeShare(payload).then((usedNative) => {
+      if (!usedNative) {
+        setSharePayload(payload);
+        setShareOpen(true);
+      }
+    });
+  }, [order]);
+
   // 发送邮件到用户输入的邮箱
   const handleSendEmail = async () => {
     if (!order?.audioUrl) {
@@ -286,35 +312,22 @@ export default function OrderStatus() {
             </div>
 
             <div className="bg-warm-cream border-2 border-deep-navy rounded-lg p-6 mt-6 shadow-card">
-              <h4 className="font-serif text-xl font-bold text-deep-navy mb-4 text-center">🔗 Share This Song</h4>
-              <div className="flex justify-center gap-4">
-                <a
-                  href={`${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/song/${order.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-burgundy-wine hover:bg-burgundy-wine/80 text-white font-bold py-3 px-6 rounded-lg border-2 border-deep-navy shadow-retro-sm hover:shadow-retro transition-all text-lg"
+              <h4 className="font-serif text-xl font-bold text-deep-navy mb-4 text-center">
+                🔗 Share This Song
+              </h4>
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={handleOpenShare}
+                  className="inline-flex items-center gap-2 bg-burgundy-wine hover:bg-burgundy-wine/80 text-white font-bold py-3 px-8 rounded-lg border-2 border-deep-navy shadow-retro-sm hover:shadow-retro transition-all text-lg"
                 >
-                  📤 Share Link
-                </a>
-                <a
-                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(process.env.NEXT_PUBLIC_URL || 'http://localhost:3000')}/song/${order.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg border-2 border-deep-navy shadow-retro-sm hover:shadow-retro transition-all text-lg"
-                >
-                  📘 Facebook
-                </a>
-                <a
-                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Listen to this special song for ${order.recipientName}!`)})&url=${encodeURIComponent(process.env.NEXT_PUBLIC_URL || 'http://localhost:3000')}/song/${order.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-6 rounded-lg border-2 border-deep-navy shadow-retro-sm hover:shadow-retro transition-all text-lg"
-                >
-                  🐦 Twitter
-                </a>
+                  <Share2 className="w-5 h-5" />
+                  Share
+                </button>
               </div>
               <p className="text-center text-deep-navy/60 text-lg mt-4">
-                Share your unique song with friends and family!
+                Share your unique song with friends and family — Facebook, WhatsApp,
+                Messages and more.
               </p>
             </div>
 
@@ -542,6 +555,13 @@ export default function OrderStatus() {
           scrollbar-color: rgba(17, 24, 39, 0.4) rgba(17, 24, 39, 0.1);
         }
       `}</style>
+
+      {/* Platform picker (desktop fallback when the OS share sheet isn't available) */}
+      <ShareModal
+        isOpen={shareOpen}
+        onClose={() => setShareOpen(false)}
+        payload={sharePayload}
+      />
     </div>
   );
 }

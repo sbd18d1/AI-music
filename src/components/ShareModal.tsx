@@ -81,7 +81,9 @@ export default function ShareModal({ isOpen, onClose, payload, onShared }: Share
           </button>
         </div>
 
-        {/* Native share shortcut (mobile): opens the OS share sheet with every app */}
+        {/* Native share shortcut: the OS sheet, where the user picks the app AND
+            whether to post or send a direct message. Available on mobile and on
+            desktop Chrome/Edge (Windows share sheet). */}
         {canUseNativeShare() && (
           <button
             type="button"
@@ -89,9 +91,15 @@ export default function ShareModal({ isOpen, onClose, payload, onShared }: Share
             className="w-full mb-4 bg-primary text-white font-bold py-3 px-4 rounded-xl border-2 border-base-content hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
           >
             <Share2 className="w-5 h-5" />
-            Share to your apps (Messages, Facebook, WhatsApp…)
+            分享到应用 / Share to your apps
           </button>
         )}
+
+        <p className="text-center text-base-content/60 text-xs mb-3">
+          {canUseNativeShare()
+            ? '或在下方选择具体平台 / Or pick a platform below'
+            : '选择分享到哪里 / Choose where to share'}
+        </p>
 
         <div className="grid grid-cols-3 gap-3">
           {SHARE_PLATFORMS.map((p) => (

@@ -78,12 +78,14 @@ export const SHARE_PLATFORMS: SharePlatform[] = [
       `https://t.me/share/url?url=${encodeURIComponent(p.url)}&text=${encodeURIComponent(p.text || p.title || '')}`,
   },
   {
+    // Desktop Messenger goes through the web composer; the old `fb-messenger://`
+    // custom scheme silently does nothing in a desktop browser.
     key: 'messenger',
     label: 'Messenger',
     icon: '💙',
     color: '#0084FF',
     buildUrl: (p) =>
-      `fb-messenger://share/?link=${encodeURIComponent(p.url)}`,
+      `https://www.facebook.com/dialog/send?app_id=87741124305&link=${encodeURIComponent(p.url)}&redirect_uri=${encodeURIComponent(p.url)}`,
   },
   {
     key: 'reddit',
