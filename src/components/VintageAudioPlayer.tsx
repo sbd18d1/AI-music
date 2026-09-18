@@ -76,8 +76,10 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
       console.log('[Watermark] Audio unlocked + loaded for mobile playback');
     }).catch((e) => {
       console.warn('[Watermark] Unlock failed:', e);
-      // Still mark as unlocked + loaded so timer starts; play() will retry
-      watermarkUnlockedRef.current = true;
+      // Do NOT latch the unlocked flag on failure: if the browser blocked this
+      // play() (common on iOS when it isn't treated as a user gesture), we want the
+      // next interaction to attempt the unlock again. Latching here meant the
+      // watermark could never recover for the rest of the session.
       setWatermarkLoaded(true);
     });
   }, []);
@@ -141,11 +143,16 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
     console.log('[Watermark] Starting timer...');
     
     stopWatermark();
-    
+
     if (watermarkTimerRef.current) {
       clearInterval(watermarkTimerRef.current);
     }
-    
+
+    // Play once immediately so every unpaid preview carries the watermark from the
+    // start. Previously the first play only happened after a full 12s interval tick,
+    // so short listens (and any interval blocked by iOS) played clean.
+    playWatermark();
+
     const scheduleWatermark = () => {
       if (watermarkLoaded) {
         watermarkTimerRef.current = setInterval(() => {
@@ -155,7 +162,7 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
         setTimeout(scheduleWatermark, 500);
       }
     };
-    
+
     scheduleWatermark();
     setWatermarkEnabled(true);
   }, [isPreview, playWatermark, stopWatermark, watermarkLoaded]);
@@ -353,9 +360,14 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
   return (
     <div className="w-full rounded-2xl overflow-hidden bg-base-200/80 border border-base-300 shadow-vintage">
       <audio ref={audioRef} preload="auto" controlsList={controlsList} className="hidden" />
-      {isPreview && (
-        <audio ref={watermarkAudioRef} src={WATERMARK_PATH} preload="auto" className="hidden" />
-      )}
+      {/*
+        Always mounted (not gated on isPreview): the ref must exist at the moment the
+        'playing' handler unlocks it. When this element was conditionally rendered, a
+        first render with isPreview=false left watermarkAudioRef.current null, the
+        unlock bailed out, and the watermark never started — so unpaid previews played
+        un-watermarked on mobile Safari.
+      */}
+      <audio ref={watermarkAudioRef} src={WATERMARK_PATH} preload="auto" className="hidden" />
       
       <div className="flex items-center gap-4 p-4">
         <button
