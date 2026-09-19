@@ -27,6 +27,11 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
   const watermarkTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const originalVolumeRef = useRef(1);
   const watermarkUnlockedRef = useRef(false);
+  // Mirrors `watermarkLoaded` for the timer's polling loop. The loop is a self-recursive
+  // closure, so it would otherwise keep reading the `watermarkLoaded` captured at the
+  // moment playback started (almost always false) and poll forever — meaning the
+  // watermark never played at all on the first listen.
+  const watermarkLoadedRef = useRef(false);
   
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -35,7 +40,6 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
   const [isMuted, setIsMuted] = useState(false);
   const [isPlayingWatermark, setIsPlayingWatermark] = useState(false);
   const [watermarkEnabled, setWatermarkEnabled] = useState(false);
-  const [watermarkLoaded, setWatermarkLoaded] = useState(false);
 
   const updateProgress = useCallback(() => {
     const audio = audioRef.current;
@@ -72,7 +76,7 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
       watermarkAudio.volume = 1;
       watermarkUnlockedRef.current = true;
       // Mark as loaded — on iOS, canplaythrough may never fire without user gesture
-      setWatermarkLoaded(true);
+      watermarkLoadedRef.current = true;
       console.log('[Watermark] Audio unlocked + loaded for mobile playback');
     }).catch((e) => {
       console.warn('[Watermark] Unlock failed:', e);
@@ -80,13 +84,13 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
       // play() (common on iOS when it isn't treated as a user gesture), we want the
       // next interaction to attempt the unlock again. Latching here meant the
       // watermark could never recover for the rest of the session.
-      setWatermarkLoaded(true);
+      watermarkLoadedRef.current = true;
     });
   }, []);
 
   const playWatermark = useCallback(() => {
     if (!isPreview) return;
-    if (!watermarkLoaded) {
+    if (!watermarkLoadedRef.current) {
       console.log('[Watermark] Audio not loaded yet');
       return;
     }
@@ -119,7 +123,7 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
       watermarkUnlockedRef.current = false;
       unlockWatermarkAudio();
     });
-  }, [isPreview, watermarkLoaded, unlockWatermarkAudio]);
+  }, [isPreview, unlockWatermarkAudio]);
 
   const stopWatermark = useCallback(() => {
     const watermarkAudio = watermarkAudioRef.current;
@@ -152,8 +156,10 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
     // begins is jarring and ruins the first impression of the song. The watermark
     // lands on the interval ticks instead, so a preview shorter than one interval
     // (12s) simply plays clean — an acceptable trade for not startling the user.
+    // Read the ref, not the state: this closure re-invokes itself every 500ms and would
+    // otherwise never observe watermarkLoaded flipping to true.
     const scheduleWatermark = () => {
-      if (watermarkLoaded) {
+      if (watermarkLoadedRef.current) {
         watermarkTimerRef.current = setInterval(() => {
           playWatermark();
         }, WATERMARK_INTERVAL);
@@ -164,7 +170,7 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
 
     scheduleWatermark();
     setWatermarkEnabled(true);
-  }, [isPreview, playWatermark, stopWatermark, watermarkLoaded]);
+  }, [isPreview, playWatermark, stopWatermark]);
 
   const stopWatermarkTimer = useCallback(() => {
     if (watermarkTimerRef.current) {
@@ -244,7 +250,7 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
 
     const handleWatermarkLoaded = () => {
       console.log('[Watermark] Audio loaded');
-      setWatermarkLoaded(true);
+      watermarkLoadedRef.current = true;
     };
 
     const handleWatermarkEnded = () => {
