@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2, Check, X, Music, Clock, ArrowLeft, Download, Mail, Share2 } from 'lucide-react';
+import { Loader2, Check, X, Music, Clock, ArrowLeft, Download, Mail, Share2, Link2 } from 'lucide-react';
 import ShareModal from '@/components/ShareModal';
 import { openNativeShare, type SharePayload } from '@/lib/share';
 
@@ -171,21 +171,35 @@ export default function OrderStatus() {
   // Open the OS share sheet on mobile (lets the user pick Facebook/WhatsApp/Messages/
   // etc. and choose post-or-direct-message in the target app); fall back to the in-app
   // platform picker on desktop where navigator.share isn't available.
-  const handleOpenShare = useCallback(() => {
-    if (!order) return;
+  /** Build the share payload for this order. */
+  const buildSharePayload = useCallback((): SharePayload | null => {
+    if (!order) return null;
     const base = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000';
-    const payload: SharePayload = {
+    return {
       url: `${base}/song/${order.id}`,
       title: `🎵 ${order.title || 'A custom song'} — made on Smart Music Lab`,
       text: `Listen to this special song for ${order.recipientName}! Made with love on Smart Music Lab.`,
     };
+  }, [order]);
+
+  const handleOpenShare = useCallback(() => {
+    const payload = buildSharePayload();
+    if (!payload) return;
     openNativeShare(payload).then((usedNative) => {
       if (!usedNative) {
         setSharePayload(payload);
         setShareOpen(true);
       }
     });
-  }, [order]);
+  }, [buildSharePayload]);
+
+  /** Skip the OS sheet entirely and show the explicit platform picker. */
+  const handleOpenSharePicker = useCallback(() => {
+    const payload = buildSharePayload();
+    if (!payload) return;
+    setSharePayload(payload);
+    setShareOpen(true);
+  }, [buildSharePayload]);
 
   // 发送邮件到用户输入的邮箱
   const handleSendEmail = async () => {
@@ -315,7 +329,7 @@ export default function OrderStatus() {
               <h4 className="font-serif text-xl font-bold text-deep-navy mb-4 text-center">
                 🔗 Share This Song
               </h4>
-              <div className="flex justify-center">
+              <div className="flex flex-wrap justify-center gap-3">
                 <button
                   type="button"
                   onClick={handleOpenShare}
@@ -324,10 +338,25 @@ export default function OrderStatus() {
                   <Share2 className="w-5 h-5" />
                   Share
                 </button>
+                {/* Always offer the explicit platform list. The OS share sheet only
+                    shows apps installed on the device, so a phone without e.g. X or
+                    WhatsApp installed offers no way to share there — this button
+                    guarantees every platform stays reachable. */}
+                <button
+                  type="button"
+                  onClick={handleOpenSharePicker}
+                  className="inline-flex items-center gap-2 bg-white hover:bg-base-200 text-deep-navy font-bold py-3 px-6 rounded-lg border-2 border-deep-navy shadow-retro-sm hover:shadow-retro transition-all text-lg"
+                >
+                  <Link2 className="w-5 h-5" />
+                  More platforms
+                </button>
               </div>
               <p className="text-center text-deep-navy/60 text-lg mt-4">
                 Share your unique song with friends and family — Facebook, WhatsApp,
-                Messages and more.
+                X, Telegram, Email and more.
+                <span className="block text-base mt-1 text-deep-navy/50">
+                  Instagram 等仅支持系统分享的 App，请用上方的 Share 按钮。
+                </span>
               </p>
             </div>
 

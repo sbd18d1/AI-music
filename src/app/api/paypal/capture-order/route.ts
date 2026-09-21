@@ -240,22 +240,30 @@ export async function POST(request: NextRequest) {
 
       console.log(`${reqId} SUCCESS (reused trial) orderId=${orderId} elapsed=${Date.now() - t0}ms`);
 
+      // Send the email WITHOUT blocking the response: sendSongEmail downloads the whole
+      // MP3 and uploads it as an attachment, which takes tens of seconds. Awaiting it
+      // here left the customer staring at "Confirming your payment…" long after PayPal
+      // had already taken the money. Fire-and-forget instead; the order is already paid
+      // and playable, and emailSentAt is recorded when the send actually completes.
       const emailForDelivery = customerEmail || order.customerEmail;
       if (emailForDelivery) {
-        const sendResult = await sendSongEmail({
+        void sendSongEmail({
           email: emailForDelivery,
           recipientName: order.recipientName,
           audioUrl: trialSong.audioUrl,
           title: trialSong.title || undefined,
           lyrics: trialSong.lyrics || undefined,
           orderId,
-        });
-        if (sendResult.ok) {
-          console.log(`${reqId} Email sent to ${emailForDelivery}`);
-          await prisma.order.update({ where: { id: orderId }, data: { emailSentAt: new Date() } });
-        } else {
-          console.error(`${reqId} Email FAILED to ${emailForDelivery}: ${sendResult.error}`);
-        }
+        })
+          .then(async (sendResult) => {
+            if (sendResult.ok) {
+              console.log(`${reqId} Email sent to ${emailForDelivery}`);
+              await prisma.order.update({ where: { id: orderId }, data: { emailSentAt: new Date() } });
+            } else {
+              console.error(`${reqId} Email FAILED to ${emailForDelivery}: ${sendResult.error}`);
+            }
+          })
+          .catch((e) => console.error(`${reqId} Email threw for ${emailForDelivery}:`, e));
       }
 
       return NextResponse.json({
@@ -333,22 +341,27 @@ export async function POST(request: NextRequest) {
         if (voided > 0) console.log(`${reqId} Coupon consumed for orderId=${orderId}`);
         console.log(`${reqId} SUCCESS (generated inline) orderId=${orderId} elapsed=${Date.now() - t0}ms`);
 
+        // Fire-and-forget for the same reason as the reused-trial branch above: the
+        // attachment download/upload must not delay the checkout response.
         const emailForDelivery = customerEmail || order.customerEmail;
         if (emailForDelivery) {
-          const sendResult = await sendSongEmail({
+          void sendSongEmail({
             email: emailForDelivery,
             recipientName: order.recipientName,
             audioUrl: result.audioUrl,
             title: result.title,
             lyrics: result.lyrics,
             orderId,
-          });
-          if (sendResult.ok) {
-            console.log(`${reqId} Email sent to ${emailForDelivery}`);
-            await prisma.order.update({ where: { id: orderId }, data: { emailSentAt: new Date() } });
-          } else {
-            console.error(`${reqId} Email FAILED to ${emailForDelivery}: ${sendResult.error}`);
-          }
+          })
+            .then(async (sendResult) => {
+              if (sendResult.ok) {
+                console.log(`${reqId} Email sent to ${emailForDelivery}`);
+                await prisma.order.update({ where: { id: orderId }, data: { emailSentAt: new Date() } });
+              } else {
+                console.error(`${reqId} Email FAILED to ${emailForDelivery}: ${sendResult.error}`);
+              }
+            })
+            .catch((e) => console.error(`${reqId} Email threw for ${emailForDelivery}:`, e));
         }
 
         return NextResponse.json({

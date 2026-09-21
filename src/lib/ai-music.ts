@@ -737,6 +737,10 @@ export async function checkResultOnce(taskId: string): Promise<GenerateSongRespo
     log('Single check - GET:', fetchUrl);
 
     const t1 = Date.now();
+    // Bound the upstream call. Without a timeout a hung 302.ai request would hold this
+    // poll open until the function's own limit, so the customer's "confirming payment"
+    // spinner stayed up long after PayPal had taken the money. Failing fast lets the
+    // frontend poll again in 3s instead of stalling.
     const response = await fetch(fetchUrl, {
       method: 'GET',
       headers: {
@@ -744,6 +748,7 @@ export async function checkResultOnce(taskId: string): Promise<GenerateSongRespo
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
       },
+      signal: AbortSignal.timeout(15000),
     });
     const t2 = Date.now();
     log(`302.ai fetch took ${t2 - t1}ms, status: ${response.status}`);
