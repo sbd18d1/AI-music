@@ -5,7 +5,7 @@ import { generateSong } from '@/lib/ai-music';
 import { consumeCouponForOrder } from '@/lib/coupon-use';
 import { PURCHASE_PRICE, COUPON_VALUE, PURCHASE_CURRENCY } from '@/lib/money';
 import { ensureCouponTable, ensureOrderCouponColumn } from '@/lib/ensure-coupon-table';
-import { ensureOrderAmountColumn } from '@/lib/ensure-analytics-table';
+import { ensureOrderAmountColumn, recordServerEvent } from '@/lib/ensure-analytics-table';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -138,6 +138,8 @@ export async function POST(request: NextRequest) {
       '';
     if (!resolvedPersonality) {
       console.warn(`${reqId} Rejecting: no description and no reusable trial order`);
+      // They tried to buy; the request died before any Order row existed.
+      await recordServerEvent('checkout_invalid', { path: '/', deviceId });
       return NextResponse.json(
         { success: false, error: 'Invalid input: a description is required to generate a song.' },
         { status: 400 }

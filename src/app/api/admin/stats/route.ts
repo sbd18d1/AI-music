@@ -228,7 +228,10 @@ export async function GET(request: NextRequest) {
               (SELECT COUNT(*) FROM "Order" WHERE "isFullVersion" = 0 ${oWindow}) AS trialsStarted,
               (SELECT COUNT(*) FROM "Order" WHERE "isFullVersion" = 0 AND "status" = 'success' ${oWindow}) AS trialsCompleted,
               (SELECT COUNT(*) FROM "Order" WHERE "isFullVersion" = 1 ${oWindow}) AS checkoutsStarted,
-              (SELECT COUNT(*) FROM "Order" WHERE "isFullVersion" = 1 AND "status" = 'success' ${oWindow}) AS paid`),
+              (SELECT COUNT(*) FROM "Order" WHERE "isFullVersion" = 1 AND "status" = 'success' ${oWindow}) AS paid,
+              (SELECT COUNT(*) FROM "Visit" WHERE "isBot" = 0 AND "type" = 'trial_blocked' ${vWindow}) AS trialsBlocked,
+              (SELECT COUNT(*) FROM "Visit" WHERE "isBot" = 0 AND "type" = 'trial_invalid' ${vWindow}) AS trialsInvalid,
+              (SELECT COUNT(*) FROM "Visit" WHERE "isBot" = 0 AND "type" = 'checkout_invalid' ${vWindow}) AS checkoutsInvalid`),
 
       exec(`SELECT
               (SELECT COUNT(*) FROM "Visit" WHERE "isBot" = 0 AND "type" = 'pageview' ${vWindow}) AS views,
@@ -238,6 +241,9 @@ export async function GET(request: NextRequest) {
               (SELECT COUNT(*) FROM "Order" WHERE "isFullVersion" = 0 AND "status" = 'success' ${oWindow}) AS trialsCompleted,
               (SELECT COUNT(*) FROM "Order" WHERE "isFullVersion" = 1 ${oWindow}) AS checkoutsStarted,
               (SELECT COUNT(*) FROM "Order" WHERE "isFullVersion" = 1 AND "status" = 'success' ${oWindow}) AS paid,
+              (SELECT COUNT(*) FROM "Visit" WHERE "isBot" = 0 AND "type" = 'trial_blocked' ${vWindow}) AS trialsBlocked,
+              (SELECT COUNT(*) FROM "Visit" WHERE "isBot" = 0 AND "type" = 'trial_invalid' ${vWindow}) AS trialsInvalid,
+              (SELECT COUNT(*) FROM "Visit" WHERE "isBot" = 0 AND "type" = 'checkout_invalid' ${vWindow}) AS checkoutsInvalid,
               (SELECT COALESCE(SUM("amountPaid"),0) FROM "Order"
                 WHERE "isFullVersion" = 1 AND "status" = 'success' AND "paypalOrderId" IS NOT NULL ${oUpdWindow}) AS revenue`),
 
@@ -249,6 +255,9 @@ export async function GET(request: NextRequest) {
               (SELECT COUNT(*) FROM "Order" WHERE "isFullVersion" = 0 AND "status" = 'success' ${prevWindow}) AS trialsCompleted,
               (SELECT COUNT(*) FROM "Order" WHERE "isFullVersion" = 1 ${prevWindow}) AS checkoutsStarted,
               (SELECT COUNT(*) FROM "Order" WHERE "isFullVersion" = 1 AND "status" = 'success' ${prevWindow}) AS paid,
+              (SELECT COUNT(*) FROM "Visit" WHERE "isBot" = 0 AND "type" = 'trial_blocked' ${prevWindow}) AS trialsBlocked,
+              (SELECT COUNT(*) FROM "Visit" WHERE "isBot" = 0 AND "type" = 'trial_invalid' ${prevWindow}) AS trialsInvalid,
+              (SELECT COUNT(*) FROM "Visit" WHERE "isBot" = 0 AND "type" = 'checkout_invalid' ${prevWindow}) AS checkoutsInvalid,
               (SELECT COALESCE(SUM("amountPaid"),0) FROM "Order"
                 WHERE "isFullVersion" = 1 AND "status" = 'success' AND "paypalOrderId" IS NOT NULL ${prevWindow}) AS revenue`),
 
@@ -363,12 +372,24 @@ export async function GET(request: NextRequest) {
     const t = (r(totalsRes)[0] ?? {}) as Row;
     const p = (r(prevTotalsRes)[0] ?? {}) as Row;
 
+    // Attempts = every time a user TRIED, regardless of outcome. Failed/blocked tries
+    // produce no Order row, so they are counted from the Visit event log
+    // (trial_blocked / trial_invalid / checkout_invalid). This is the "attempted"
+    // figure that is always >= the completed figure.
+    const genAttempts = num(f.trialsStarted) + num(f.trialsBlocked) + num(f.trialsInvalid);
+    const buyAttempts = num(f.checkoutsStarted) + num(f.checkoutsInvalid);
+
     const funnel = {
       visitors: num(f.visitors),
       trialsStarted: num(f.trialsStarted),
       trialsCompleted: num(f.trialsCompleted),
       checkoutsStarted: num(f.checkoutsStarted),
       paid: num(f.paid),
+      generationAttempts: genAttempts,
+      trialsBlocked: num(f.trialsBlocked),
+      trialsInvalid: num(f.trialsInvalid),
+      purchaseAttempts: buyAttempts,
+      checkoutsInvalid: num(f.checkoutsInvalid),
       rates: {
         visitToTrial: rate(num(f.trialsStarted), num(f.visitors)),
         trialToComplete: rate(num(f.trialsCompleted), num(f.trialsStarted)),
@@ -385,6 +406,10 @@ export async function GET(request: NextRequest) {
       trialsCompleted: num(t.trialsCompleted),
       checkoutsStarted: num(t.checkoutsStarted),
       paid: num(t.paid),
+      // Attempts include blocked/invalid tries that never became an Order row.
+      generationAttempts: num(t.trialsStarted) + num(t.trialsBlocked) + num(t.trialsInvalid),
+      trialsBlocked: num(t.trialsBlocked),
+      purchaseAttempts: num(t.checkoutsStarted) + num(t.checkoutsInvalid),
       revenue: Math.round(num(t.revenue) * 100) / 100,
       topCountry: countries[0]?.label ?? null,
       topCity: cities[0]?.label ?? null,
@@ -396,6 +421,8 @@ export async function GET(request: NextRequest) {
       trialsCompleted: num(p.trialsCompleted),
       checkoutsStarted: num(p.checkoutsStarted),
       paid: num(p.paid),
+      generationAttempts: num(p.trialsStarted) + num(p.trialsBlocked) + num(p.trialsInvalid),
+      purchaseAttempts: num(p.checkoutsStarted) + num(p.checkoutsInvalid),
       revenue: Math.round(num(p.revenue) * 100) / 100,
     };
 

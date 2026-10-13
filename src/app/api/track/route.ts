@@ -14,7 +14,22 @@ const trackSchema = z.object({
   // 'identify' is the deferred-fingerprint beacon (see components/Analytics.tsx) —
   // it carries a deviceId for an already-counted page view and must be excluded from
   // click/event counts on the dashboard.
-  type: z.enum(['pageview', 'identify', 'trial_start', 'checkout_start', 'share', 'download']).default('pageview'),
+  // trial_blocked / trial_invalid / checkout_invalid are written server-side by
+  // recordServerEvent (see ensure-analytics-table.ts); accepted here too so the
+  // whitelist stays the single list of valid event names.
+  type: z
+    .enum([
+      'pageview',
+      'identify',
+      'trial_start',
+      'trial_blocked',
+      'trial_invalid',
+      'checkout_start',
+      'checkout_invalid',
+      'share',
+      'download',
+    ])
+    .default('pageview'),
   path: z.string().max(300),
   referrer: z.string().max(300).optional(),
   deviceId: z.string().max(200).optional(),

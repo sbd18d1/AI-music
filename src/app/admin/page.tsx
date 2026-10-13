@@ -77,6 +77,12 @@ interface Stats {
     trialsCompleted: number;
     checkoutsStarted: number;
     paid: number;
+    /** Attempts include tries that were blocked/invalid and never became an order. */
+    generationAttempts: number;
+    trialsBlocked: number;
+    trialsInvalid: number;
+    purchaseAttempts: number;
+    checkoutsInvalid: number;
     rates: Record<string, number | null>;
   };
   totals: {
@@ -86,6 +92,9 @@ interface Stats {
     trialsCompleted: number;
     checkoutsStarted: number;
     paid: number;
+    generationAttempts: number;
+    trialsBlocked: number;
+    purchaseAttempts: number;
     revenue: number;
     topCountry: string | null;
     topCity: string | null;
@@ -97,6 +106,8 @@ interface Stats {
     trialsCompleted: number;
     checkoutsStarted: number;
     paid: number;
+    generationAttempts: number;
+    purchaseAttempts: number;
     revenue: number;
   } | null;
   payments: PaymentRow[];
@@ -348,11 +359,31 @@ export default function AdminDashboardPage() {
                 sub={prev ? `上期 ${prev.visitors}` : undefined}
               />
               <StatTile
+                label="生成尝试（含被拦截）"
+                value={data.totals.generationAttempts}
+                icon={<Music className="w-6 h-6 text-primary" />}
+                delta={delta(data.totals.generationAttempts, prev?.generationAttempts)}
+                sub={
+                  data.totals.trialsBlocked > 0
+                    ? `其中 ${data.totals.trialsBlocked} 次因试用已用完被拦截`
+                    : prev
+                      ? `上期 ${prev.generationAttempts}`
+                      : undefined
+                }
+              />
+              <StatTile
                 label="生成调用"
                 value={data.totals.trialsStarted}
                 icon={<Music className="w-6 h-6 text-primary" />}
                 delta={delta(data.totals.trialsStarted, prev?.trialsStarted)}
                 sub={prev ? `上期 ${prev.trialsStarted}` : undefined}
+              />
+              <StatTile
+                label="购买尝试（含失败）"
+                value={data.totals.purchaseAttempts}
+                icon={<CreditCard className="w-6 h-6 text-primary" />}
+                delta={delta(data.totals.purchaseAttempts, prev?.purchaseAttempts)}
+                sub={prev ? `上期 ${prev.purchaseAttempts}` : undefined}
               />
               <StatTile
                 label="支付笔数"
@@ -633,13 +664,24 @@ export default function AdminDashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <section className="bg-base-200/80 border border-base-300 rounded-2xl p-5 md:p-6 shadow-vintage">
                 <h3 className="font-serif text-lg font-bold text-base-content mb-1">转化漏斗</h3>
-                <p className="text-base-content/60 text-xs mb-5">
+                <p className="text-base-content/60 text-xs mb-2">
                   整体「访问 → 付费」转化率：
                   <span className="font-semibold text-base-content">
                     {data.funnel.rates.visitToPaid === null
                       ? '—'
                       : `${Math.round(data.funnel.rates.visitToPaid * 1000) / 10}%`}
                   </span>
+                </p>
+                {/* Attempts vs. successes: a blocked try never becomes an Order row, so
+                    it is invisible in every other number on this page. */}
+                <p className="text-base-content/50 text-xs mb-5">
+                  尝试生成 <span className="font-semibold text-base-content">{data.funnel.generationAttempts}</span> 次
+                  （成功进入生成 {data.funnel.trialsStarted} 次
+                  {data.funnel.trialsBlocked + data.funnel.trialsInvalid > 0
+                    ? `，另有 ${data.funnel.trialsBlocked + data.funnel.trialsInvalid} 次在提交前被拦下`
+                    : ''}
+                  ）
+                  · 尝试购买 <span className="font-semibold text-base-content">{data.funnel.purchaseAttempts}</span> 次
                 </p>
                 <FunnelChart
                   stages={[
@@ -784,7 +826,10 @@ const EVENT_LABELS: Record<string, string> = {
   pageview: '浏览',
   identify: '身份识别',
   trial_start: '开始试听',
+  trial_blocked: '试听被拦截（免费用完）',
+  trial_invalid: '试听提交无效',
   checkout_start: '发起结账',
+  checkout_invalid: '结账提交无效',
   share: '分享',
   download: '下载',
 };

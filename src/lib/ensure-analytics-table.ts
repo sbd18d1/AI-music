@@ -76,3 +76,27 @@ export async function ensureOrderAmountColumn(): Promise<void> {
   }
   orderAmountColumnEnsured = true;
 }
+
+/**
+ * Record a server-side analytics event (an attempt that never produced a row anywhere
+ * else). The client already fires `trial_start` / `checkout_start` beacons before it
+ * calls the API, but a request ReJECTED server-side — trial limit reached, invalid
+ * input — leaves no trace at all. Those blocked attempts are exactly what we want to
+ * count ("tried to generate/buy, regardless of whether it completed").
+ *
+ * Never throws: analytics must not be able to break a user-facing request.
+ */
+export async function recordServerEvent(
+  type: string,
+  opts: { path?: string; deviceId?: string | null } = {}
+): Promise<void> {
+  try {
+    await ensureVisitTable();
+    await tursoClient.execute({
+      sql: `INSERT INTO "Visit" ("id","type","path","deviceId","isBot") VALUES (?,?,?,?,0)`,
+      args: [crypto.randomUUID(), type, opts.path || '/', opts.deviceId || null],
+    });
+  } catch (e) {
+    console.error(`[analytics] recordServerEvent(${type}) failed:`, e);
+  }
+}

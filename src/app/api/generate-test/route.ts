@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/db/client';
 import { generateSong, isPlayableAudioUrl } from '@/lib/ai-music';
+import { recordServerEvent } from '@/lib/ensure-analytics-table';
 
 const generateSchema = z.object({
   recipientName: z.string().min(1).max(100),
@@ -83,6 +84,8 @@ export async function POST(request: NextRequest) {
       const hasUsedTrial = await checkTrialLimit(deviceId);
       if (hasUsedTrial) {
         console.log(`[${new Date().toISOString()}] Trial limit exceeded for device: ${deviceId}`);
+        // Count the blocked attempt — this user wanted a song and hit the paywall.
+        await recordServerEvent('trial_blocked', { path: '/', deviceId });
         return NextResponse.json(
           {
             success: false,
@@ -136,6 +139,7 @@ export async function POST(request: NextRequest) {
     } else {
       const validation = generateSchema.safeParse(body);
       if (!validation.success) {
+        await recordServerEvent('trial_invalid', { path: '/', deviceId });
         return NextResponse.json(
           { error: 'Invalid input', details: validation.error.issues },
           { status: 400 }
