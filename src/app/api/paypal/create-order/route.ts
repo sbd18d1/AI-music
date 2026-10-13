@@ -3,12 +3,7 @@ import { prisma } from '@/db/client';
 import { z } from 'zod';
 import { generateSong } from '@/lib/ai-music';
 import { consumeCouponForOrder } from '@/lib/coupon-use';
-import {
-  REGULAR_PRICE,
-  PURCHASE_PRICE,
-  COUPON_VALUE,
-  PURCHASE_CURRENCY,
-} from '@/lib/money';
+import { PURCHASE_PRICE, COUPON_VALUE, PURCHASE_CURRENCY } from '@/lib/money';
 import { ensureCouponTable, ensureOrderCouponColumn } from '@/lib/ensure-coupon-table';
 import { ensureOrderAmountColumn } from '@/lib/ensure-analytics-table';
 
@@ -365,8 +360,6 @@ export async function POST(request: NextRequest) {
       // Pricing/coupon info so the frontend can surface "you saved $X".
       amountPaid: payAmount,
       basePrice: basePrice.toFixed(2),
-      // Regular (pre-promo) list price so the UI can show "was $9.90, now $5.00".
-      regularPrice: REGULAR_PRICE,
       couponApplied: appliedCouponValue > 0,
       couponValue: appliedCouponValue > 0 ? appliedCouponValue.toFixed(2) : null,
     });

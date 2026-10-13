@@ -2,19 +2,10 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Pricing | Smart Music Lab',
-  description: 'Limited-time offer - $5.00 per song (regularly $9.90). Create personalized AI-generated songs',
+  description: 'Simple, transparent pricing - $9.90 per song. Create personalized AI-generated songs',
 };
 
-const PROMO_PRICE = '$1.00';
-const REGULAR_PRICE = '$9.90';
-
-/** Derived from the two prices so the advertised discount can never drift out of sync. */
-const SAVE_PERCENT = (() => {
-  const regular = parseFloat(REGULAR_PRICE.replace(/[^0-9.]/g, ''));
-  const promo = parseFloat(PROMO_PRICE.replace(/[^0-9.]/g, ''));
-  if (!isFinite(regular) || !isFinite(promo) || regular <= 0 || promo >= regular) return null;
-  return Math.round(((regular - promo) / regular) * 100);
-})();
+const PRICE = '$9.90';
 
 export default function PricingPage() {
   return (
@@ -24,26 +15,13 @@ export default function PricingPage() {
           <h1 className="text-3xl md:text-4xl font-bold text-primary mb-2">Pricing</h1>
           <p className="text-base-content/60 mb-8">Last updated: August 2026</p>
 
-          <div className="bg-secondary/15 border-2 border-secondary rounded-xl p-4 text-center mb-8">
-            <p className="text-primary font-bold text-lg">
-              🔥 Limited-Time Offer{SAVE_PERCENT !== null ? ` — Save ${SAVE_PERCENT}%` : ''}
-            </p>
-            <p className="text-base-content/80 text-sm mt-1">
-              <span className="font-semibold">{REGULAR_PRICE}</span>{' '}
-              <span className="inline-block px-1.5 py-0.5 mx-1 bg-primary text-primary-content text-xs rounded">Now</span>{' '}
-              <span className="font-bold">{PROMO_PRICE}</span> per song. Expires soon!
-            </p>
-          </div>
-
           <section className="space-y-8 text-base-content/80 leading-relaxed">
             <div className="grid md:grid-cols-2 gap-6">
               <div className="bg-gradient-to-br from-primary/10 to-secondary/10 rounded-xl p-6 border-2 border-primary">
-                <div className="text-center relative">
-                  <span className="absolute top-0 right-0 bg-secondary text-secondary-content text-xs font-bold px-2 py-1 rounded-full rotate-6">⚡ LIMITED TIME</span>
+                <div className="text-center">
                   <h2 className="text-2xl font-bold text-primary mb-2">One Song</h2>
-                  <p className="text-xl text-base-content/50 line-through mb-1">{REGULAR_PRICE}</p>
-                  <p className="text-4xl font-bold text-primary mb-1">{PROMO_PRICE}</p>
-                  <p className="text-base-content/60 text-sm mb-1">per song · regular price {REGULAR_PRICE}</p>
+                  <p className="text-4xl font-bold text-primary mb-1">{PRICE}</p>
+                  <p className="text-base-content/60 text-sm mb-4">per song</p>
                   <ul className="text-left space-y-2 text-sm">
                     <li className="flex items-start gap-2">
                       <span className="text-primary font-bold">✓</span>
@@ -89,7 +67,7 @@ export default function PricingPage() {
                   </li>
                   <li className="flex gap-2">
                     <span className="bg-primary text-primary-content rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
-                    <span>Pay <s>{REGULAR_PRICE}</s> <strong>{PROMO_PRICE}</strong> to unlock the full song</span>
+                    <span>Pay {PRICE} to unlock the full song</span>
                   </li>
                   <li className="flex gap-2">
                     <span className="bg-primary text-primary-content rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">4</span>
@@ -102,7 +80,7 @@ export default function PricingPage() {
             <div>
               <h2 className="text-xl font-semibold text-base-content mb-2">Important Information</h2>
               <ul className="list-disc list-inside space-y-1 text-sm">
-                <li>Each song is a separate one-time purchase at <s>{REGULAR_PRICE}</s> <strong>{PROMO_PRICE}</strong> during the limited-time offer</li>
+                <li>Each song is a separate one-time purchase at {PRICE}</li>
                 <li>No subscriptions, no recurring fees</li>
                 <li>Prices listed in USD (United States Dollars)</li>
                 <li>Taxes may apply based on your location</li>
@@ -116,26 +94,13 @@ export default function PricingPage() {
           <h1 className="text-3xl md:text-4xl font-bold text-primary mb-2">价格说明</h1>
           <p className="text-base-content/60 mb-8">最后更新：2026年8月</p>
 
-          <div className="bg-secondary/15 border-2 border-secondary rounded-xl p-4 text-center mb-8">
-            <p className="text-primary font-bold text-lg">
-              🔥 限时优惠{SAVE_PERCENT !== null ? ` — 立省 ${SAVE_PERCENT}%` : ''}
-            </p>
-            <p className="text-base-content/80 text-sm mt-1">
-              <span className="font-semibold">原价 {REGULAR_PRICE}</span>{' '}
-              <span className="inline-block px-1.5 py-0.5 mx-1 bg-primary text-primary-content text-xs rounded">现在</span>{' '}
-              <span className="font-bold">每首歌 {PROMO_PRICE}</span>，优惠活动即将结束！
-            </p>
-          </div>
-
           <section className="space-y-8 text-base-content/80 leading-relaxed">
             <div className="grid md:grid-cols-2 gap-6">
               <div className="bg-gradient-to-br from-primary/10 to-secondary/10 rounded-xl p-6 border-2 border-primary">
-                <div className="text-center relative">
-                  <span className="absolute top-0 right-0 bg-secondary text-secondary-content text-xs font-bold px-2 py-1 rounded-full -rotate-6">⚡ 限时</span>
+                <div className="text-center">
                   <h2 className="text-2xl font-bold text-primary mb-2">单曲购买</h2>
-                  <p className="text-xl text-base-content/50 line-through mb-1">{REGULAR_PRICE}</p>
-                  <p className="text-4xl font-bold text-primary mb-1">{PROMO_PRICE}</p>
-                  <p className="text-base-content/60 text-sm mb-1">每首歌曲 · 原价 {REGULAR_PRICE}</p>
+                  <p className="text-4xl font-bold text-primary mb-1">{PRICE}</p>
+                  <p className="text-base-content/60 text-sm mb-4">每首歌曲</p>
                   <ul className="text-left space-y-2 text-sm">
                     <li className="flex items-start gap-2">
                       <span className="text-primary font-bold">✓</span>
@@ -181,7 +146,7 @@ export default function PricingPage() {
                   </li>
                   <li className="flex gap-2">
                     <span className="bg-primary text-primary-content rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
-                    <span>支付 <s>{REGULAR_PRICE}</s> <strong>{PROMO_PRICE}</strong> 解锁完整歌曲</span>
+                    <span>支付 {PRICE} 解锁完整歌曲</span>
                   </li>
                   <li className="flex gap-2">
                     <span className="bg-primary text-primary-content rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">4</span>
@@ -194,7 +159,7 @@ export default function PricingPage() {
             <div>
               <h2 className="text-xl font-semibold text-base-content mb-2">重要信息</h2>
               <ul className="list-disc list-inside space-y-1 text-sm">
-                <li>限时优惠期间，每首歌曲为独立一次性购买，价格 <s>{REGULAR_PRICE}</s> <strong>{PROMO_PRICE}</strong></li>
+                <li>每首歌曲为独立一次性购买，价格 {PRICE}</li>
                 <li>无订阅费用，无自动续费</li>
                 <li>价格以美元（USD）标价</li>
                 <li>税费可能根据您的所在地适用</li>
