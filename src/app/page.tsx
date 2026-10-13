@@ -10,6 +10,7 @@ import { DEFAULT_SELECTION, isSelectionComplete, deriveGenreFromConfig, type Son
 import { getDeviceId } from '@/lib/device-id';
 import { canUseNativeShare, openNativeShare, type SharePayload } from '@/lib/share';
 import { track } from '@/lib/analytics-client';
+import { COUPON_VALUE } from '@/lib/money';
 
 type Style = 'Classic Rock' | 'Country & Folk' | 'Blues & Soul' | '60s/70s Pop Ballad';
 type ArtistStyle = 'None' | 'Frank Sinatra' | 'Elvis Presley' | 'The Beatles' | 'The Rolling Stones' | 'Bob Dylan' | 'Simon & Garfunkel' | 'Aretha Franklin' | 'Neil Diamond' | 'Johnny Cash';
@@ -92,7 +93,9 @@ export default function Home() {
   const [priceLoading, setPriceLoading] = useState(false);
 
   // Coupon (fingerprint-bound) states — no user-facing code, no manual redemption.
-  const [couponEarned, setCouponEarned] = useState(false); // shown as "you earned $0.50 off" toast
+  // Displayed only — the real discount is applied server-side from @/lib/money.
+  const couponLabel = `$${Number(COUPON_VALUE).toFixed(2)}`;
+  const [couponEarned, setCouponEarned] = useState(false); // shown as "you earned $X off" toast
   const [hasCoupon, setHasCoupon] = useState(false);       // whether this fingerprint owns an unused coupon
   const [couponValue, setCouponValue] = useState(0);       // its value (for display)
 
@@ -104,8 +107,8 @@ export default function Home() {
 
   const deliveryStrategy = getDeliveryStrategy();
 
-  // Price is $9.90 (matches PURCHASE_PRICE in @/lib/money). A fingerprint-bound $0.50
-  // coupon, when available, auto-deducts at checkout. No dynamic price fetching —
+  // Price is $9.90 (matches PURCHASE_PRICE in @/lib/money). A fingerprint-bound coupon,
+  // when available, auto-deducts COUPON_VALUE at checkout. No dynamic price fetching —
   // PayPal shows the actual total in its checkout window.
 
   useEffect(() => {
@@ -508,7 +511,7 @@ export default function Home() {
       });
       const data = await response.json();
       if (data.success) {
-        setCouponEarned(true); // show "you earned $0.50 off your next song"
+        setCouponEarned(true); // show "you earned $X off your next song"
       } else {
         console.warn('[coupon] issue returned:', data);
       }
@@ -787,7 +790,7 @@ export default function Home() {
 
                 {couponEarned && (
                   <div className="mt-4 border-2 border-success bg-success/10 rounded-lg p-3 text-center">
-                    <p className="font-semibold text-success">🎉 You earned $0.50 off! Applied automatically at checkout.</p>
+                    <p className="font-semibold text-success">🎉 You earned {couponLabel} off! Applied automatically at checkout.</p>
                   </div>
                 )}
               </div>
@@ -905,12 +908,12 @@ export default function Home() {
                         </button>
                       </div>
                       <p className="text-center text-base-content/60 text-lg mt-4">
-                        Share via Messages, Facebook, WhatsApp &amp; more — share and earn $0.50 off your next song!
+                        Share via Messages, Facebook, WhatsApp &amp; more — share and earn {couponLabel} off your next song!
                       </p>
 
                       {couponEarned && (
                         <div className="mt-6 border-2 border-success bg-success/10 rounded-xl p-4 text-center">
-                          <p className="font-serif text-xl font-bold text-success">🎉 You earned $0.50 off!</p>
+                          <p className="font-serif text-xl font-bold text-success">🎉 You earned {couponLabel} off!</p>
                           <p className="text-base-content/70 text-sm">
                             Applied automatically to your next song.
                           </p>

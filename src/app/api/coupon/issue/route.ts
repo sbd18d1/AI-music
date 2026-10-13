@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/db/client';
 import { ensureCouponTable, ensureOrderCouponColumn } from '@/lib/ensure-coupon-table';
 import { randomBytes } from 'crypto';
+import { COUPON_VALUE } from '@/lib/money';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -11,8 +12,6 @@ export const maxDuration = 60;
 const issueSchema = z.object({
   deviceId: z.string().min(1).max(200), // browser fingerprint (getDeviceId) — coupon owner
 });
-
-const COUPON_VALUE = 0.5; // USD — deduction applied to the next purchase
 
 /** Internal, collision-safe code. Never shown to the user — only used to track/audit. */
 function generateCode(): string {
@@ -90,7 +89,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Could not create a coupon, try again.' }, { status: 500 });
     }
 
-    console.log(`${reqId} Issued $${COUPON_VALUE.toFixed(2)} coupon (code=${coupon.code}) to deviceId=${deviceId.slice(0, 12)}…`);
+    console.log(`${reqId} Issued $${Number(COUPON_VALUE).toFixed(2)} coupon (code=${coupon.code}) to deviceId=${deviceId.slice(0, 12)}…`);
     // NOTE: we deliberately do NOT return `code` to the frontend — the coupon is owned by
     // the fingerprint and auto-applied server-side on the next purchase.
     return NextResponse.json({ success: true, value: COUPON_VALUE });
