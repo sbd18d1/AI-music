@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import {
   Eye,
   Users,
@@ -132,6 +132,38 @@ interface PaymentDetail extends PaymentRow {
   location?: { country: string | null; city: string | null; region: string | null; referrer: string | null };
 }
 
+interface SongRow {
+  id: string;
+  status: string;
+  isFullVersion: boolean;
+  recipientName: string | null;
+  genre: string | null;
+  title: string | null;
+  prompt: string | null;
+  hasLyrics: boolean;
+  lyricsPreview: string | null;
+  duration: string | null;
+  hasAudio: boolean;
+  coverImageUrl: string | null;
+  amountPaid: number | null;
+  currency: string | null;
+  couponCode: string | null;
+  fromTrial: boolean;
+  deviceId: string | null;
+  aiRequestId: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+interface SongsResponse {
+  success: boolean;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  songs: SongRow[];
+}
+
 const PRESETS: { id: PresetRange; label: string }[] = [
   { id: '1d', label: '今天' },
   { id: '3d', label: '近 3 天' },
@@ -161,6 +193,16 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState('');
   const [detail, setDetail] = useState<PaymentDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  // ---- 歌曲列表（全部订单，含免费试听）----
+  const [songs, setSongs] = useState<SongsResponse | null>(null);
+  const [songsLoading, setSongsLoading] = useState(true);
+  const [songsError, setSongsError] = useState('');
+  const [songQuery, setSongQuery] = useState('');
+  const [songKind, setSongKind] = useState<'' | 'trial' | 'paid'>('');
+  const [songStatus, setSongStatus] = useState('');
+  const [songPage, setSongPage] = useState(1);
+  const [expandedSong, setExpandedSong] = useState<string | null>(null);
 
   // Restore the last range so a refresh doesn't reset.
   useEffect(() => {
@@ -225,6 +267,47 @@ export default function AdminDashboardPage() {
     load(range, from, to, ac.signal);
     return () => ac.abort();
   }, [range, from, to, load]);
+
+  // Load the song list. Debounced on the search box so typing doesn't spam the API.
+  useEffect(() => {
+    const ac = new AbortController();
+    const t = setTimeout(() => {
+      setSongsLoading(true);
+      setSongsError('');
+      const qs = new URLSearchParams({
+        range,
+        page: String(songPage),
+        ...(songKind ? { kind: songKind } : {}),
+        ...(songStatus ? { status: songStatus } : {}),
+        ...(songQuery.trim() ? { q: songQuery.trim() } : {}),
+      });
+      fetch(`/api/admin/songs?${qs}`, { signal: ac.signal, cache: 'no-store' })
+        .then(async (res) => {
+          if (res.status === 401) {
+            window.location.href = '/admin/login';
+            return null;
+          }
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
+        .then((d) => {
+          if (d) setSongs(d as SongsResponse);
+        })
+        .catch((e: Error) => {
+          if (e.name !== 'AbortError') setSongsError(e.message || '加载失败');
+        })
+        .finally(() => setSongsLoading(false));
+    }, 300);
+    return () => {
+      clearTimeout(t);
+      ac.abort();
+    };
+  }, [range, songPage, songKind, songStatus, songQuery]);
+
+  // Any filter change resets to the first page.
+  useEffect(() => {
+    setSongPage(1);
+  }, [range, songKind, songStatus, songQuery]);
 
   const openDetail = useCallback(async (id: string) => {
     setDetailLoading(true);
@@ -507,6 +590,202 @@ export default function AdminDashboardPage() {
                   标记「无记录」的订单发生在金额统计功能上线之前，无法回溯，因此不计入收入合计。
                 </p>
               )}
+            </section>
+
+            {/* ---- 歌曲列表（全部订单，含免费试听与用户 prompt）---- */}
+            <section className="bg-base-200/80 border border-base-300 rounded-2xl p-5 md:p-6 shadow-vintage">
+              <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+                <h3 className="font-serif text-lg font-bold text-base-content">生成的歌曲</h3>
+                <p className="text-base-content/60 text-xs">
+                  共 {songs?.total ?? 0} 首 · 点击任意一行展开用户输入与歌词
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <input
+                  type="search"
+                  value={songQuery}
+                  onChange={(e) => setSongQuery(e.target.value)}
+                  placeholder="搜索用户输入 / 歌名 / 收件人…"
+                  className="input input-sm input-bordered bg-white w-full sm:w-72"
+                  aria-label="搜索歌曲"
+                />
+                <div className="join" role="group" aria-label="订单类型">
+                  {([['', '全部'], ['trial', '免费试听'], ['paid', '付费']] as const).map(([k, label]) => (
+                    <button
+                      key={k || 'all'}
+                      type="button"
+                      onClick={() => setSongKind(k as '' | 'trial' | 'paid')}
+                      aria-pressed={songKind === k}
+                      className={`btn btn-sm join-item ${songKind === k ? 'btn-active' : ''}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <select
+                  value={songStatus}
+                  onChange={(e) => setSongStatus(e.target.value)}
+                  className="select select-sm select-bordered bg-white"
+                  aria-label="订单状态"
+                >
+                  <option value="">全部状态</option>
+                  <option value="success">成功</option>
+                  <option value="failed">失败</option>
+                  <option value="pending">待支付</option>
+                  <option value="processing">处理中</option>
+                </select>
+                {songsLoading && <Loader2 className="w-4 h-4 animate-spin text-base-content/50" />}
+              </div>
+
+              {songsError ? (
+                <p className="text-error text-sm py-4 text-center">加载失败：{songsError}</p>
+              ) : (songs?.songs?.length ?? 0) === 0 ? (
+                <p className="text-base-content/50 text-sm py-6 text-center">
+                  {songQuery || songStatus || songKind ? '没有符合条件的歌曲' : '暂无歌曲'}
+                </p>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-base-content/60 border-b border-base-300">
+                          <th className="py-2 pr-3 font-medium whitespace-nowrap">时间</th>
+                          <th className="py-2 pr-3 font-medium">类型</th>
+                          <th className="py-2 pr-3 font-medium">用户输入</th>
+                          <th className="py-2 pr-3 font-medium">歌名</th>
+                          <th className="py-2 pr-3 font-medium">状态</th>
+                          <th className="py-2 font-medium">金额</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {songs!.songs.map((sg) => {
+                          const open = expandedSong === sg.id;
+                          return (
+                            <Fragment key={sg.id}>
+                              <tr
+                                onClick={() => setExpandedSong(open ? null : sg.id)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    setExpandedSong(open ? null : sg.id);
+                                  }
+                                }}
+                                tabIndex={0}
+                                role="button"
+                                className="border-b border-base-300/60 hover:bg-base-200/60 transition-colors cursor-pointer focus:outline-none focus:bg-base-200"
+                                title="点击展开详情"
+                              >
+                                <td className="py-2 pr-3 whitespace-nowrap tabular-nums text-base-content/70">
+                                  {fmtTime(sg.createdAt)}
+                                </td>
+                                <td className="py-2 pr-3 whitespace-nowrap">
+                                  {sg.isFullVersion ? (
+                                    <span className="badge badge-sm bg-success/20 text-base-content border-0">付费</span>
+                                  ) : (
+                                    <span className="badge badge-sm bg-primary/10 text-primary border-0">试听</span>
+                                  )}
+                                </td>
+                                <td className="py-2 pr-3 text-base-content/80 max-w-[24rem] truncate">
+                                  {sg.prompt || '—'}
+                                </td>
+                                <td className="py-2 pr-3 text-base-content/70 max-w-[12rem] truncate">
+                                  {sg.title || '—'}
+                                </td>
+                                <td className="py-2 pr-3 whitespace-nowrap">
+                                  <span className={
+                                    sg.status === 'success' ? 'text-success' :
+                                    sg.status === 'failed' ? 'text-error' : 'text-base-content/60'
+                                  }>
+                                    {sg.status === 'success' ? '成功' :
+                                     sg.status === 'failed' ? '失败' :
+                                     sg.status === 'pending' ? '待支付' :
+                                     sg.status === 'processing' ? '处理中' : sg.status}
+                                  </span>
+                                </td>
+                                <td className="py-2 whitespace-nowrap tabular-nums">
+                                  {sg.amountPaid === null ? '—' : `${sg.amountPaid.toFixed(2)}`}
+                                </td>
+                              </tr>
+                              {open && (
+                                <tr className="bg-base-200/40 border-b border-base-300/60">
+                                  <td colSpan={6} className="py-4 px-3">
+                                    <div className="space-y-3 text-sm max-w-3xl">
+                                      <div>
+                                        <p className="text-base-content/50 text-xs mb-1">用户输入（完整 prompt）</p>
+                                        <p className="text-base-content whitespace-pre-wrap break-words">
+                                          {sg.prompt || '—'}
+                                        </p>
+                                      </div>
+                                      <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-base-content/60">
+                                        <span>曲风：{sg.genre || '—'}</span>
+                                        <span>收件人：{sg.recipientName || '—'}</span>
+                                        <span>时长：{sg.duration ? `${sg.duration}s` : '—'}</span>
+                                        <span>音频：{sg.hasAudio ? '已生成' : '无'}</span>
+                                        <span>歌词：{sg.hasLyrics ? '有' : '无'}</span>
+                                        {sg.couponCode && <span>用券：是</span>}
+                                        <span>设备：{sg.deviceId ? `${sg.deviceId.slice(0, 8)}…` : '—'}</span>
+                                        <span className="font-mono">{sg.id}</span>
+                                      </div>
+                                      {sg.lyricsPreview && (
+                                        <div>
+                                          <p className="text-base-content/50 text-xs mb-1">歌词（节选）</p>
+                                          <p className="text-base-content/80 whitespace-pre-wrap break-words text-xs">
+                                            {sg.lyricsPreview}…
+                                          </p>
+                                        </div>
+                                      )}
+                                      <a
+                                        href={`/song/${sg.id}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-block text-primary hover:underline text-xs"
+                                      >
+                                        打开歌曲页面 ↗
+                                      </a>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {songs!.totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-4">
+                      <p className="text-base-content/50 text-xs">
+                        第 {songs!.page} / {songs!.totalPages} 页
+                      </p>
+                      <div className="join">
+                        <button
+                          type="button"
+                          onClick={() => setSongPage((n) => Math.max(1, n - 1))}
+                          disabled={songPage <= 1}
+                          className="btn btn-sm join-item"
+                        >
+                          上一页
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSongPage((n) => Math.min(songs!.totalPages, n + 1))}
+                          disabled={songPage >= songs!.totalPages}
+                          className="btn btn-sm join-item"
+                        >
+                          下一页
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <p className="text-base-content/50 text-xs mt-3 flex items-start gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                为减少批量暴露个人信息，此处不显示邮箱与 IP；需要时可在上方付款记录点开单笔查看。
+              </p>
             </section>
 
             {/* ---- 流量趋势 ---- */}
