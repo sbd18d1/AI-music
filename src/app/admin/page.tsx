@@ -806,11 +806,13 @@ export default function AdminDashboardPage() {
                 <p className="flex items-start gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                   <span>
-                    状态说明：<strong className="text-success">试听生成成功</strong>＝免费试听曲已生成；
-                    <strong className="text-success">付款成功 · 歌曲已交付</strong>＝已收款且歌曲已生成；
-                    <strong className="text-warning">已付款 · 生成中</strong>＝钱已收到，歌还没好；
+                    状态说明（判定依据是订单状态 + 是否已生成音频）：
+                    <strong className="text-success">试听生成成功</strong>＝免费试听曲已生成；
+                    <strong className="text-success">付款成功 · 歌曲已交付</strong>＝已确认收款且歌曲已生成；
+                    <strong className="text-warning">已付款 · 生成中</strong>＝已确认收款，歌还没好；
                     <strong className="text-error">已付款但生成失败（需退款）</strong>＝收过钱但歌曲没生成，需处理退款；
-                    <strong className="text-base-content/70">未付款（已放弃结账）</strong>＝用户点了支付但没完成。
+                    <strong className="text-base-content/70">未付款（已放弃结账）</strong>＝用户点开了支付但未完成付款
+                    （含"从试听后选择解锁"但最终没付的情况）。
                   </span>
                 </p>
                 <p>
