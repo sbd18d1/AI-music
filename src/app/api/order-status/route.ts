@@ -38,8 +38,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // If still processing and we have a 302 task id, ask 302 once whether it's done.
-    if (order.status === 'processing' && order.aiRequestId) {
+    // If the order is still in flight and we have a 302 task id, ask 302 once whether
+    // it is done. This must cover 'generating' (trial orders) and 'testing' as well as
+    // 'processing' (paid orders): a resumed trial would otherwise never be re-checked
+    // and would sit on "generating" forever.
+    if (['processing', 'generating', 'testing'].includes(order.status) && order.aiRequestId) {
       const taskId = order.aiRequestId;
       const pollT0 = Date.now();
       const result = await checkResultOnce(taskId);
@@ -100,6 +103,9 @@ export async function GET(request: NextRequest) {
         }),
         coverImageUrl: order.coverImageUrl,
         duration: order.duration,
+        // Needed by the homepage resume flow, which takes over polling for an order
+        // that was still generating when the user reloaded.
+        aiRequestId: order.aiRequestId,
         customerEmail: order.customerEmail,
         emailSent: !!order.emailSentAt,
         createdAt: order.createdAt.toISOString(),
