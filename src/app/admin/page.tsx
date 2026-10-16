@@ -15,6 +15,7 @@ import {
   Loader2,
   X,
   AlertCircle,
+  Wand2,
 } from 'lucide-react';
 import StatTile from '@/components/charts/StatTile';
 import LineChart from '@/components/charts/LineChart';
@@ -212,6 +213,9 @@ export default function AdminDashboardPage() {
   const [songStatus, setSongStatus] = useState('');
   const [songPage, setSongPage] = useState(1);
   const [expandedSong, setExpandedSong] = useState<string | null>(null);
+  // Recovery of orders stranded in "generating" (song finished but never promoted).
+  const [recovering, setRecovering] = useState(false);
+  const [recoverResult, setRecoverResult] = useState('');
 
   // Restore the last range so a refresh doesn't reset.
   useEffect(() => {
@@ -335,6 +339,40 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
+  // Rescue orders whose song finished on 302.ai but which were never advanced: only
+  // the customer's browser poll used to promote them, and it gives up or stops on close.
+  const handleRecover = async () => {
+    if (recovering) return;
+    setRecovering(true);
+    setRecoverResult('');
+    try {
+      const res = await fetch('/api/admin/recover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      if (res.status === 401) {
+        window.location.href = '/admin/login';
+        return;
+      }
+      const d = await res.json();
+      if (d?.success) {
+        const s2 = d.summary;
+        setRecoverResult(
+          `检查 ${s2.checked} 单：找回 ${s2.recovered}，判定失败 ${s2.failed}，仍在生成 ${s2.stillGenerating}` +
+            (s2.errors ? `，出错 ${s2.errors}` : '')
+        );
+        load(range, from, to);
+      } else {
+        setRecoverResult(d?.error || '恢复失败');
+      }
+    } catch (e) {
+      setRecoverResult('恢复失败：' + (e instanceof Error ? e.message : ''));
+    } finally {
+      setRecovering(false);
+    }
+  };
+
   const handleLogout = async () => {
     await fetch('/api/admin/logout', { method: 'POST' });
     window.location.href = '/admin/login';
@@ -369,6 +407,16 @@ export default function AdminDashboardPage() {
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               刷新
+            </button>
+            <button
+              type="button"
+              onClick={handleRecover}
+              className="btn btn-sm"
+              disabled={recovering}
+              title="检查卡在生成中的订单；若歌曲其实已完成则补回结果"
+            >
+              <Wand2 className={`w-4 h-4 ${recovering ? 'animate-spin' : ''}`} />
+              找回未完成的歌
             </button>
             <button type="button" onClick={handleLogout} className="btn btn-sm">
               <LogOut className="w-4 h-4" />
