@@ -136,6 +136,15 @@ interface SongRow {
   id: string;
   status: string;
   isFullVersion: boolean;
+  /** Derived, unambiguous state from the server (see order-status-label.ts). */
+  state: {
+    kind: 'trial' | 'paid';
+    payment: 'unpaid' | 'paid' | 'refund_due';
+    generation: 'not_started' | 'in_progress' | 'done' | 'failed';
+    label: string;
+    tone: 'success' | 'error' | 'warning' | 'muted';
+    playable: boolean;
+  };
   recipientName: string | null;
   genre: string | null;
   title: string | null;
@@ -692,15 +701,15 @@ export default function AdminDashboardPage() {
                                 <td className="py-2 pr-3 text-base-content/70 max-w-[12rem] truncate">
                                   {sg.title || '—'}
                                 </td>
-                                <td className="py-2 pr-3 whitespace-nowrap">
+                                <td className="py-2 pr-3">
+                                  {/* Interpreted state, not the raw DB status: the raw
+                                      value conflates payment with generation. */}
                                   <span className={
-                                    sg.status === 'success' ? 'text-success' :
-                                    sg.status === 'failed' ? 'text-error' : 'text-base-content/60'
+                                    sg.state.tone === 'success' ? 'text-success' :
+                                    sg.state.tone === 'error' ? 'text-error' :
+                                    sg.state.tone === 'warning' ? 'text-warning' : 'text-base-content/60'
                                   }>
-                                    {sg.status === 'success' ? '成功' :
-                                     sg.status === 'failed' ? '失败' :
-                                     sg.status === 'pending' ? '待支付' :
-                                     sg.status === 'processing' ? '处理中' : sg.status}
+                                    {sg.state.label}
                                   </span>
                                 </td>
                                 <td className="py-2 whitespace-nowrap tabular-nums">
@@ -735,14 +744,23 @@ export default function AdminDashboardPage() {
                                           </p>
                                         </div>
                                       )}
-                                      <a
-                                        href={`/song/${sg.id}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-block text-primary hover:underline text-xs"
-                                      >
-                                        打开歌曲页面 ↗
-                                      </a>
+                                      {/* Only offer playback when the order actually has
+                                          audio. Opening /song/[id] for a song with no audio
+                                          lands the operator on "audio not available". */}
+                                      {sg.hasAudio ? (
+                                        <a
+                                          href={`/song/${sg.id}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-block text-primary hover:underline text-xs"
+                                        >
+                                          打开歌曲页面 ↗
+                                        </a>
+                                      ) : (
+                                        <p className="text-base-content/50 text-xs">
+                                          该订单没有音频（{sg.state.generation === 'failed' ? '生成失败' : '尚未生成完成'}），因此无法试听。
+                                        </p>
+                                      )}
                                     </div>
                                   </td>
                                 </tr>
@@ -782,10 +800,23 @@ export default function AdminDashboardPage() {
                 </>
               )}
 
-              <p className="text-base-content/50 text-xs mt-3 flex items-start gap-1.5">
-                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                为减少批量暴露个人信息，此处不显示邮箱与 IP；需要时可在上方付款记录点开单笔查看。
-              </p>
+              {/* The raw DB status conflates payment with generation, so spell out
+                  what each state actually means. */}
+              <div className="text-base-content/50 text-xs mt-3 space-y-1">
+                <p className="flex items-start gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  <span>
+                    状态说明：<strong className="text-success">试听生成成功</strong>＝免费试听曲已生成；
+                    <strong className="text-success">付款成功 · 歌曲已交付</strong>＝已收款且歌曲已生成；
+                    <strong className="text-warning">已付款 · 生成中</strong>＝钱已收到，歌还没好；
+                    <strong className="text-error">已付款但生成失败（需退款）</strong>＝收过钱但歌曲没生成，需处理退款；
+                    <strong className="text-base-content/70">未付款（已放弃结账）</strong>＝用户点了支付但没完成。
+                  </span>
+                </p>
+                <p>
+                  为减少批量暴露个人信息，此处不显示邮箱与 IP；需要时可在上方付款记录点开单笔查看。
+                </p>
+              </div>
             </section>
 
             {/* ---- 流量趋势 ---- */}

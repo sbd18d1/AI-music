@@ -3,6 +3,7 @@ import { tursoClient } from '@/lib/turso-client';
 import { ensureOrderAmountColumn } from '@/lib/ensure-analytics-table';
 import { ensureOrderCouponColumn, ensureOrderEmailColumn } from '@/lib/ensure-coupon-table';
 import { requireAdmin } from '@/lib/admin-auth';
+import { interpretOrder } from '@/lib/order-status-label';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -80,7 +81,7 @@ export async function GET(request: NextRequest) {
       sql: `SELECT "id", "status", "isFullVersion", "recipientName", "genre", "title",
                    "personality", "lyrics", "duration", "audioUrl", "coverImageUrl",
                    "amountPaid", "currency", "couponCode", "trialOrderId", "deviceId",
-                   "aiRequestId",
+                   "paypalOrderId", "aiRequestId",
                    strftime('%Y-%m-%dT%H:%M:%SZ', "createdAt") AS createdAt,
                    strftime('%Y-%m-%dT%H:%M:%SZ', "updatedAt") AS updatedAt
             FROM "Order"
@@ -100,6 +101,16 @@ export async function GET(request: NextRequest) {
         id: s(r.id),
         status: s(r.status),
         isFullVersion: b(r.isFullVersion),
+        // Derived, unambiguous state — see order-status-label.ts. `status` alone
+        // conflates payment with generation.
+        state: interpretOrder({
+          status: s(r.status),
+          isFullVersion: b(r.isFullVersion),
+          amountPaid: r.amountPaid === null || r.amountPaid === undefined ? null : Number(r.amountPaid),
+          hasAudio: !!r.audioUrl,
+          paypalOrderId: s((r as Row).paypalOrderId),
+          couponCode: s(r.couponCode),
+        }),
         recipientName: s(r.recipientName),
         genre: s(r.genre),
         title: s(r.title),
