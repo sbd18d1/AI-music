@@ -215,14 +215,38 @@ export default function Home() {
     if (typeof window === 'undefined') return;
     // A paid device, or a song already restored from the snapshot, needs no resume.
     if (localStorage.getItem('device_has_paid') === 'true') return;
-    const savedOrderId = localStorage.getItem('trial_order_id');
-    if (!savedOrderId) return;
     if (deliveryStrategy.getSavedSongData()) return; // already have the finished song
 
     let cancelled = false;
     setIsResuming(true);
     (async () => {
       try {
+        // Resolve the order to resume, newest first. The device fingerprint is the
+        // app's canonical identity (it is what Order.deviceId, the trial limit and
+        // coupon binding all use), so it survives a cleared localStorage or a
+        // different browser. /api/generate-test returns this device's MOST RECENT
+        // trial order in any state, which is exactly the rule for what to show.
+        let savedOrderId = localStorage.getItem('trial_order_id');
+
+        const deviceId = await getDeviceId().catch(() => '');
+        if (deviceId) {
+          const byDevice = await fetch('/api/generate-test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            // Minimal payload: this call is only being used to look the order up, and
+            // a device that already used its trial gets a 429 whose body is ignored here.
+            body: JSON.stringify({ deviceId, recipientName: 'Gift Recipient', personality: '', genre: '' }),
+          })
+            .then((r) => r.json())
+            .catch(() => null);
+          if (byDevice?.orderId) savedOrderId = byDevice.orderId;
+        }
+
+        if (!savedOrderId) {
+          setIsResuming(false);
+          return;
+        }
+
         const res = await fetch(`/api/order-status?order_id=${encodeURIComponent(savedOrderId)}`);
         const data = await res.json();
         if (cancelled || !data?.success || !data.order) return;

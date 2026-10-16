@@ -30,14 +30,25 @@ function getClientIp(request: NextRequest): string {
 // Device-based trial limit: one trial per device (permanent, not 24h).
 // Uses deviceId only — no IP fallback, to avoid blocking multiple users
 // behind the same NAT/router/WiFi.
+//
+// Buying also closes the trial: a device that has already paid for a song has shown
+// it is willing to pay, and it stops the "buy once, then keep previewing free" path.
+// The check is written to fail OPEN (return false) if the lookup errors, so a database
+// hiccup can never lock a legitimate first-time visitor out of their free preview.
 async function checkTrialLimit(deviceId: string | undefined): Promise<boolean> {
   if (!deviceId) return false;
 
-  const deviceUsageCount = await prisma.trialUsage.count({
-    where: { deviceId },
-  });
+  const [deviceUsageCount, paidOrderCount] = await Promise.all([
+    prisma.trialUsage.count({ where: { deviceId } }),
+    // Any paid order that reached a terminal paid state — pending checkouts (the user
+    // opened PayPal and walked away) must NOT count, or an abandoned purchase would
+    // burn the visitor's free trial.
+    prisma.order.count({
+      where: { deviceId, isFullVersion: true, status: 'success' },
+    }),
+  ]);
 
-  return deviceUsageCount >= 1;
+  return deviceUsageCount >= 1 || paidOrderCount >= 1;
 }
 
 async function recordTrialUsage(deviceId: string | undefined, ipAddress: string): Promise<void> {
@@ -49,23 +60,28 @@ async function recordTrialUsage(deviceId: string | undefined, ipAddress: string)
   });
 }
 
-// Find an existing successful trial order for this device (by deviceId only).
-// Excludes orders whose stored audio URL is unusable (e.g. leftover audiopipe links,
-// expired/stale entries) so the frontend won't be handed a broken link to play.
-async function findExistingTrialOrder(deviceId: string | undefined) {
+// Find this device's MOST RECENT trial order, in ANY state.
+//
+// It used to select only `status: 'success'` with a usable audioUrl. That meant a
+// user who reloaded while their song was still generating got null, and the page
+// behaved as if they had never generated anything: no player, no progress, and no
+// retry — even though the order existed and the song usually finished a moment later.
+//
+// Returning the latest order regardless of state lets the caller decide what to show:
+// a finished song, a "still generating" state (which it can resume polling for), or a
+// failure the user can act on. 'testing' is skipped because it is the transient
+// pre-submit state in mock mode.
+async function findLatestTrialOrder(deviceId: string | undefined) {
   if (!deviceId) return null;
 
-  const candidate = await prisma.order.findFirst({
+  return prisma.order.findFirst({
     where: {
       deviceId,
       isFullVersion: false,
-      status: 'success',
-      audioUrl: { not: null },
+      status: { not: 'testing' },
     },
     orderBy: { createdAt: 'desc' },
   });
-
-  return candidate && isPlayableAudioUrl(candidate.audioUrl) ? candidate : null;
 }
 
 export async function POST(request: NextRequest) {
@@ -80,7 +96,18 @@ export async function POST(request: NextRequest) {
 
     console.log(`${reqId} Trial request from IP: ${ipAddress}, deviceId: ${deviceId || 'none'}`);
 
-    if (AI_GENERATION_MODE !== 'mock') {
+    // Look the device's latest trial order up FIRST, before the trial-limit gate.
+    // The gate returns 429 for any device that already used its trial — which is
+    // exactly the population that needs this lookup (to see their finished song, or
+    // to resume an in-flight one). Gating first would hide their own order from them.
+    const existingTrialOrder = await findLatestTrialOrder(deviceId);
+
+    // The gate must not fire when this device already has an order to be served —
+    // otherwise the very users who need their own song back (trial already used) get a
+    // 429 instead of their order. Serving happens in the block right below.
+    const hasOrderToServe = !!existingTrialOrder;
+
+    if (AI_GENERATION_MODE !== 'mock' && !hasOrderToServe) {
       const hasUsedTrial = await checkTrialLimit(deviceId);
       if (hasUsedTrial) {
         console.log(`[${new Date().toISOString()}] Trial limit exceeded for device: ${deviceId}`);
@@ -97,32 +124,54 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if this device already has a successful trial order.
-    // If yes, return that trial song directly (with watermark) instead of generating a new one.
-    const existingTrialOrder = await findExistingTrialOrder(deviceId);
+    if (existingTrialOrder) {
+      if (existingTrialOrder.audioUrl && isPlayableAudioUrl(existingTrialOrder.audioUrl)) {
+        console.log(`[${new Date().toISOString()}] Reusing existing trial order ${existingTrialOrder.id} for device: ${deviceId}`);
+        // Match the fresh-generation path: return the remote CDN URL directly for <audio>,
+        // so mobile Safari plays the file instead of the streaming proxy (which can fail
+        // playback). Only fall back to /api/stream-audio for non-http/local-ish paths.
+        const audioUrl = existingTrialOrder.audioUrl;
+        const isLocalFile = audioUrl.startsWith('/') && !audioUrl.startsWith('//');
+        const isRemoteHttp = /^https?:\/\//i.test(audioUrl);
+        const audioUrlForFrontend = isLocalFile || isRemoteHttp
+          ? audioUrl
+          : `/api/stream-audio/${existingTrialOrder.id}`;
+        return NextResponse.json({
+          success: true,
+          audioUrl: audioUrlForFrontend,
+          orderId: existingTrialOrder.id,
+          isPreview: true,
+          lyrics: existingTrialOrder.lyrics,
+          title: existingTrialOrder.title,
+          coverImageUrl: existingTrialOrder.coverImageUrl,
+          duration: existingTrialOrder.duration,
+          reused: true,
+        });
+      }
 
-    if (existingTrialOrder && existingTrialOrder.audioUrl) {
-      console.log(`[${new Date().toISOString()}] Reusing existing trial order ${existingTrialOrder.id} for device: ${deviceId}`);
-      // Match the fresh-generation path: return the remote CDN URL directly for <audio>,
-      // so mobile Safari plays the file instead of the streaming proxy (which can fail
-      // playback). Only fall back to /api/stream-audio for non-http/local-ish paths.
-      const audioUrl = existingTrialOrder.audioUrl;
-      const isLocalFile = audioUrl.startsWith('/') && !audioUrl.startsWith('//');
-      const isRemoteHttp = /^https?:\/\//i.test(audioUrl);
-      const audioUrlForFrontend = isLocalFile || isRemoteHttp
-        ? audioUrl
-        : `/api/stream-audio/${existingTrialOrder.id}`;
-      return NextResponse.json({
-        success: true,
-        audioUrl: audioUrlForFrontend,
-        orderId: existingTrialOrder.id,
-        isPreview: true,
-        lyrics: existingTrialOrder.lyrics,
-        title: existingTrialOrder.title,
-        coverImageUrl: existingTrialOrder.coverImageUrl,
-        duration: existingTrialOrder.duration,
-        reused: true,
-      });
+      if (
+        (existingTrialOrder.status === 'generating' || existingTrialOrder.status === 'processing') &&
+        existingTrialOrder.aiRequestId
+      ) {
+        // Still in flight — hand back the task id so the page can pick the polling back up
+        // instead of starting (and paying for) a duplicate generation.
+        console.log(`[${new Date().toISOString()}] Trial ${existingTrialOrder.id} still ${existingTrialOrder.status}, resuming`);
+        return NextResponse.json({
+          success: true,
+          status: 'generating',
+          taskId: existingTrialOrder.aiRequestId,
+          orderId: existingTrialOrder.id,
+          reused: true,
+        });
+      }
+      // In flight but with no task id: nothing to poll. Fall through and let the caller
+      // start a fresh generation rather than stranding the user on a spinner forever.
+
+      if (existingTrialOrder.status === 'failed') {
+        // Report the older failure, but do NOT block: a user whose generation failed
+        // should be able to try again with a new description rather than be stranded.
+        console.log(`[${new Date().toISOString()}] Trial ${existingTrialOrder.id} previously failed; allowing a fresh attempt`);
+      }
     }
 
     let recipientName = body.recipientName || 'Gift Recipient';
@@ -184,6 +233,14 @@ export async function POST(request: NextRequest) {
           aiRequestId: aiResponse.requestId,
         },
       });
+
+      // Record the trial HERE, not in the synchronous branch further down. Real-mode
+      // generation is async: this branch returns as soon as it has a task id, so the
+      // sync branch (and its recordTrialUsage call) was never reached — which left
+      // TrialUsage empty and made the server-side one-trial-per-device limit a no-op.
+      if (AI_GENERATION_MODE !== 'mock') {
+        await recordTrialUsage(deviceId, ipAddress);
+      }
 
       console.log(`[${new Date().toISOString()}] Trial submitted for device: ${deviceId}, order: ${order.id}, taskId: ${aiResponse.requestId}`);
 
