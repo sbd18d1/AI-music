@@ -86,6 +86,8 @@ export default function Home() {
   // Whether the device has already used its one free trial generation. Once true,
   // the form must only offer paid generation (no free "Hear a Preview" button).
   const [hasUsedFreeTrial, setHasUsedFreeTrial] = useState(false);
+  // True while we are asking the server about a generation left over from a reload.
+  const [isResuming, setIsResuming] = useState(false);
 
   const [songConfig, setSongConfig] = useState<SongConfigSelection>(DEFAULT_SELECTION);
   // Price actually charged (USD), mirroring PURCHASE_PRICE in @/lib/money.
@@ -197,6 +199,75 @@ export default function Home() {
         setOrderId(savedOrderId);
       }
     }
+  }, []);
+
+  // Resume an unfinished generation after a reload / tab reopen.
+  //
+  // Previously the mount effect restored a song ONLY from the localStorage snapshot,
+  // which is written after completion — so a user who refreshed (or was closed) while
+  // the song was still generating saw nothing at all: no player, no "generating" hint,
+  // and no way to retry (the free trial was already spent). Meanwhile the order id WAS
+  // in localStorage the whole time; nothing ever asked the server about it.
+  //
+  // /api/order-status re-checks 302.ai server-side and returns the live state, so this
+  // is the same source of truth the post-payment page uses.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    // A paid device, or a song already restored from the snapshot, needs no resume.
+    if (localStorage.getItem('device_has_paid') === 'true') return;
+    const savedOrderId = localStorage.getItem('trial_order_id');
+    if (!savedOrderId) return;
+    if (deliveryStrategy.getSavedSongData()) return; // already have the finished song
+
+    let cancelled = false;
+    setIsResuming(true);
+    (async () => {
+      try {
+        const res = await fetch(`/api/order-status?order_id=${encodeURIComponent(savedOrderId)}`);
+        const data = await res.json();
+        if (cancelled || !data?.success || !data.order) return;
+        const o = data.order;
+        setOrderId(o.id);
+        // The device already spent its free trial on this order.
+        setHasUsedFreeTrial(true);
+
+        if (o.status === 'success' && o.audioUrl) {
+          setAudioUrl(o.audioUrl);
+          setIsPreview(true);
+          setSongTitle(o.title || '');
+          setSongLyrics(o.lyrics || '');
+          setCoverImageUrl(o.coverImageUrl || '');
+          setSongDuration(o.duration || '180');
+          setShowResult(true);
+          deliveryStrategy.saveSongData({
+            audioUrl: o.audioUrl,
+            isPreview: true,
+            title: o.title || '',
+            lyrics: o.lyrics || '',
+            coverImageUrl: o.coverImageUrl || '',
+            duration: o.duration || '180',
+          });
+        } else if (o.status === 'failed') {
+          setErrorMessage('这首歌生成失败了，请重新描述后再生成一首。');
+          setShowResult(true);
+        } else if (o.status === 'processing' || o.status === 'generating' || o.status === 'testing') {
+          // Still in flight — take over polling so the user sees progress instead of a blank page.
+          setShowResult(true);
+          setErrorMessage('');
+          if (o.aiRequestId) pollGenerationStatus(o.aiRequestId);
+        }
+      } catch (e) {
+        console.error('[resume] failed to resume trial order:', e);
+      } finally {
+        if (!cancelled) setIsResuming(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally runs once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleGenerateSong = async (e: React.FormEvent) => {
@@ -738,6 +809,13 @@ export default function Home() {
               </div>
 
               <div className="space-y-4">
+                {/* Restoring a generation left over from a reload / reopened tab. */}
+                {isResuming && (
+                  <div className="w-full bg-base-200/80 border border-base-300 rounded-xl p-4 flex items-center justify-center gap-3">
+                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                    <span className="text-base-content/80">正在获取你刚才生成的歌曲…</span>
+                  </div>
+                )}
                 {!hasUsedFreeTrial && !isPaidDevice && (
                 <button
                   type="button"
