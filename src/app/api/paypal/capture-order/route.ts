@@ -6,6 +6,7 @@ import { consumeCouponForOrder } from '@/lib/coupon-use';
 import { ensureOrderEmailColumn } from '@/lib/ensure-coupon-table';
 import { ensureOrderAmountColumn } from '@/lib/ensure-analytics-table';
 import { extractCapturedAmount } from '@/lib/money';
+import { disablePreview } from '@/lib/device-state';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -236,6 +237,9 @@ export async function POST(request: NextRequest) {
 
       // The fingerprint-bound coupon auto-applied at checkout is now earned — void it.
       const voided = await consumeCouponForOrder(orderId, order.couponCode, order.deviceId, getClientIp(request));
+      // A completed purchase closes the free preview for this device (explicit flag,
+      // rather than inferring it later from the order table).
+      if (order.deviceId) await disablePreview(order.deviceId, 'purchased').catch(() => {});
       if (voided > 0) console.log(`${reqId} Coupon consumed for orderId=${orderId}`);
 
       console.log(`${reqId} SUCCESS (reused trial) orderId=${orderId} elapsed=${Date.now() - t0}ms`);
@@ -338,6 +342,7 @@ export async function POST(request: NextRequest) {
 
         // Voucher (if any auto-applied at checkout) is now earned — void it.
         const voided = await consumeCouponForOrder(orderId, order.couponCode, order.deviceId, getClientIp(request));
+        if (order.deviceId) await disablePreview(order.deviceId, 'purchased').catch(() => {});
         if (voided > 0) console.log(`${reqId} Coupon consumed for orderId=${orderId}`);
         console.log(`${reqId} SUCCESS (generated inline) orderId=${orderId} elapsed=${Date.now() - t0}ms`);
 

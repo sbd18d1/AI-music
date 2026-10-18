@@ -3,6 +3,7 @@ import { tursoClient } from '@/lib/turso-client';
 import { ensureVisitTable, ensureVisitIndexes, ensureOrderAmountColumn } from '@/lib/ensure-analytics-table';
 import { ensureOrderCouponColumn, ensureOrderEmailColumn } from '@/lib/ensure-coupon-table';
 import { requireAdmin } from '@/lib/admin-auth';
+import { ensureDeviceTable, backfillDevices } from '@/lib/device-state';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -122,6 +123,8 @@ export async function GET(request: NextRequest) {
     await ensureOrderAmountColumn();
     await ensureOrderCouponColumn();
     await ensureOrderEmailColumn();
+    await ensureDeviceTable();
+    await backfillDevices();
 
     // Window clauses shared by every query. `fromDay`/`endExclusive`/`toDay` are either
     // preset-derived or validated YYYY-MM-DD strings, never raw user input, so the

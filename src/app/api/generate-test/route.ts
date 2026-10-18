@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { prisma } from '@/db/client';
 import { generateSong, isPlayableAudioUrl } from '@/lib/ai-music';
 import { recordServerEvent } from '@/lib/ensure-analytics-table';
+import { canPreview, disablePreview, touchDevice } from '@/lib/device-state';
+import { PURCHASE_PRICE } from '@/lib/money';
 
 const generateSchema = z.object({
   recipientName: z.string().min(1).max(100),
@@ -27,28 +29,23 @@ function getClientIp(request: NextRequest): string {
   return ip || 'unknown';
 }
 
-// Device-based trial limit: one trial per device (permanent, not 24h).
-// Uses deviceId only — no IP fallback, to avoid blocking multiple users
-// behind the same NAT/router/WiFi.
+// Whether this device may still see the free preview.
 //
-// Buying also closes the trial: a device that has already paid for a song has shown
-// it is willing to pay, and it stops the "buy once, then keep previewing free" path.
-// The check is written to fail OPEN (return false) if the lookup errors, so a database
-// hiccup can never lock a legitimate first-time visitor out of their free preview.
+// This used to be INFERRED by counting rows in TrialUsage and Order, which meant
+// "reset" had to delete rows and the rule could not be changed without touching
+// several queries. It is now a single explicit flag on the Device row (see
+// lib/device-state.ts): true = may preview, false = used or purchased.
+//
+// Written to fail OPEN (return true) if the lookup throws, so a database hiccup can
+// never lock a legitimate first-time visitor out of their free preview.
 async function checkTrialLimit(deviceId: string | undefined): Promise<boolean> {
   if (!deviceId) return false;
-
-  const [deviceUsageCount, paidOrderCount] = await Promise.all([
-    prisma.trialUsage.count({ where: { deviceId } }),
-    // Any paid order that reached a terminal paid state — pending checkouts (the user
-    // opened PayPal and walked away) must NOT count, or an abandoned purchase would
-    // burn the visitor's free trial.
-    prisma.order.count({
-      where: { deviceId, isFullVersion: true, status: 'success' },
-    }),
-  ]);
-
-  return deviceUsageCount >= 1 || paidOrderCount >= 1;
+  try {
+    return !(await canPreview(deviceId));
+  } catch (e) {
+    console.error('[trial] canPreview lookup failed:', e);
+    return false;
+  }
 }
 
 async function recordTrialUsage(deviceId: string | undefined, ipAddress: string): Promise<void> {
@@ -58,6 +55,9 @@ async function recordTrialUsage(deviceId: string | undefined, ipAddress: string)
       deviceId: deviceId || null,
     },
   });
+  // Consuming the preview flips the explicit Device flag. Setting it here (rather than
+  // at each call site) keeps the flag correct no matter which branch recorded the use.
+  if (deviceId) await disablePreview(deviceId, 'trial_used');
 }
 
 // Find this device's MOST RECENT trial order, in ANY state.
@@ -102,9 +102,12 @@ export async function POST(request: NextRequest) {
     // to resume an in-flight one). Gating first would hide their own order from them.
     const existingTrialOrder = await findLatestTrialOrder(deviceId);
 
-    // The gate must not fire when this device already has an order to be served —
-    // otherwise the very users who need their own song back (trial already used) get a
-    // 429 instead of their order. Serving happens in the block right below.
+    // A device's existing order is SERVED below regardless of the limit: that is how a
+    // returning visitor gets their finished song (or resumes an in-flight one).
+    //
+    // The limit only governs whether we start ANOTHER generation. So it is checked when
+    // there is nothing to serve — a device that has already used up its preview and has
+    // no order to hand back must be blocked, not silently granted a second free song.
     const hasOrderToServe = !!existingTrialOrder;
 
     if (AI_GENERATION_MODE !== 'mock' && !hasOrderToServe) {
@@ -116,7 +119,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: 'Free trial limit exceeded. Please purchase the full version for $4.99.',
+            // Derived from PURCHASE_PRICE so the message can never drift from the real
+            // price again (it still said $4.99 long after the price became $1.00).
+            error: `Free trial limit exceeded. Please purchase the full version for ${PURCHASE_PRICE}.`,
             showUpgrade: true,
           },
           { status: 429 }
@@ -168,8 +173,22 @@ export async function POST(request: NextRequest) {
       // start a fresh generation rather than stranding the user on a spinner forever.
 
       if (existingTrialOrder.status === 'failed') {
-        // Report the older failure, but do NOT block: a user whose generation failed
-        // should be able to try again with a new description rather than be stranded.
+        // A failed order must not be re-served, so we fall through to generate again.
+        // That fall-through is a NEW generation, so the preview flag has to be honoured
+        // here — otherwise an exhausted device gets a fresh free song every time its
+        // previous attempt failed.
+        const blocked = await checkTrialLimit(deviceId);
+        if (blocked) {
+          await recordServerEvent('trial_blocked', { path: '/', deviceId });
+          return NextResponse.json(
+            {
+              success: false,
+              error: `Free trial limit exceeded. Please purchase the full version for ${PURCHASE_PRICE}.`,
+              showUpgrade: true,
+            },
+            { status: 429 }
+          );
+        }
         console.log(`[${new Date().toISOString()}] Trial ${existingTrialOrder.id} previously failed; allowing a fresh attempt`);
       }
     }

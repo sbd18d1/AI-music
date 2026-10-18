@@ -11,13 +11,17 @@
  * TrialUsage.deviceId, coupon binding), so it is the only correct key here.
  *
  * Paid orders are deliberately KEPT: they represent real money. Deleting them would
- * destroy the operator's sales ledger and the customer's proof of purchase. Only the
- * free-trial state is cleared so the device can preview again.
+ * destroy the operator's sales ledger and the customer's proof of purchase.
+ *
+ * Trial eligibility itself is no longer derived from these rows — it is the explicit
+ * `canPreview` flag on the Device row, which this function flips back to true. The
+ * deletions below only clear stale per-trial bookkeeping.
  */
 import { prisma } from '@/db/client';
 import { tursoClient } from '@/lib/turso-client';
 import { ensureCouponTable } from '@/lib/ensure-coupon-table';
 import { ensureVisitTable } from '@/lib/ensure-analytics-table';
+import { enablePreview } from '@/lib/device-state';
 
 export interface ResetSummary {
   trialUsage: number;
@@ -25,9 +29,13 @@ export interface ResetSummary {
   coupons: number;
   visits: number;
   paidOrdersKept: number;
+  previewReenabled: boolean;
 }
 
 export async function resetDeviceData(deviceId: string): Promise<ResetSummary> {
+  // The explicit preview switch is the authoritative gate now — flip it back first.
+  // This is the whole point of the reset: no rows need deleting for preview to work.
+  await enablePreview(deviceId);
   // Everything below is scoped by deviceId ONLY — never by IP.
   const deletedUsage = await prisma.trialUsage.deleteMany({ where: { deviceId } });
 
@@ -61,5 +69,6 @@ export async function resetDeviceData(deviceId: string): Promise<ResetSummary> {
     coupons,
     visits,
     paidOrdersKept,
+    previewReenabled: true,
   };
 }
