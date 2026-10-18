@@ -316,15 +316,14 @@ export default function VintageAudioPlayer({ src, controlsList, isPreview = fals
           // The usual cause is an expired/withdrawn audio link rather than a browser
           // problem, so say what the user can actually do about it.
           alert(
-            '这首歌的音频链接已失效（通常是因为链接过期）。请重新生成一首。\n\n' +
-              'This song\'s audio link has expired or is unavailable. Please generate a new song.'
+            'This song\'s audio link has expired or is unavailable. Please generate a new song.'
           );
         } else if (error.name === 'NotAllowedError') {
           alert(
-            '浏览器阻止了播放，请再次点击播放按钮。\n\nPlayback was blocked by the browser — please click play again.'
+            'Playback was blocked by the browser — please click play again.'
           );
         } else {
-          alert(`播放失败 / Playback failed: ${error.message}`);
+          alert(`Playback failed: ${error.message}`);
         }
       });
     }

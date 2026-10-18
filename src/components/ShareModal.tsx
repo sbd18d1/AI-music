@@ -91,14 +91,14 @@ export default function ShareModal({ isOpen, onClose, payload, onShared }: Share
             className="w-full mb-4 bg-primary text-white font-bold py-3 px-4 rounded-xl border-2 border-base-content hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
           >
             <Share2 className="w-5 h-5" />
-            分享到应用 / Share to your apps
+            Share to your apps
           </button>
         )}
 
         <p className="text-center text-base-content/60 text-xs mb-3">
           {canUseNativeShare()
-            ? '或在下方选择具体平台 / Or pick a platform below'
-            : '选择分享到哪里 / Choose where to share'}
+            ? 'Or pick a platform below'
+            : 'Choose where to share'}
         </p>
 
         <div className="grid grid-cols-3 gap-3">

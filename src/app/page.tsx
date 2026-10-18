@@ -272,7 +272,7 @@ export default function Home() {
             duration: o.duration || '180',
           });
         } else if (o.status === 'failed') {
-          setErrorMessage('这首歌生成失败了，请重新描述后再生成一首。');
+          setErrorMessage('Your song could not be generated. Please try a new description.');
           setShowResult(true);
         } else if (o.status === 'processing' || o.status === 'generating' || o.status === 'testing') {
           // Still in flight — resume polling so the user sees progress instead of a blank
@@ -850,7 +850,7 @@ export default function Home() {
                 {isResuming && (
                   <div className="w-full bg-base-200/80 border border-base-300 rounded-xl p-4 flex items-center justify-center gap-3">
                     <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                    <span className="text-base-content/80">正在获取你刚才生成的歌曲…</span>
+                    <span className="text-base-content/80">Fetching your song…</span>
                   </div>
                 )}
                 {!hasUsedFreeTrial && !isPaidDevice && (
@@ -916,6 +916,10 @@ export default function Home() {
             </p>
           </form>
 
+        {/* Only render the result panel once there is something to show. The
+            "Song Generated!" message is driven by the success branch below, which is
+            itself gated on audioUrl — otherwise a resumed in-flight order announced
+            success with a 0:00 player while the song was still being generated. */}
         {showResult && !isPaidDevice && (
           <div className="bg-base-200/80 border border-base-300 p-6 md:p-10 shadow-vintage rounded-2xl mt-8">
             {DELIVERY_MODE === 'SESSION_LOCK' && (
@@ -935,6 +939,20 @@ export default function Home() {
                 <div className="text-5xl mb-4">❌</div>
                 <h3 className="font-serif text-2xl font-bold text-error mb-3">Generation Failed</h3>
                 <p className="text-base-content/80 text-xl">{errorMessage}</p>
+              </div>
+            ) : !audioUrl ? (
+              /* No audio yet — the song is still being generated (typically after a
+                 refresh, where the order exists but 302.ai has not finished). Saying
+                 "Song Generated!" here was wrong: it showed a player stuck at 0:00. */
+              <div className="text-center py-6">
+                <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-4" />
+                <h3 className="font-serif text-2xl font-bold text-base-content mb-3">
+                  Generating your song…
+                </h3>
+                <p className="text-base-content/70 text-lg">
+                  This usually takes 2–3 minutes. You can safely leave this page — the
+                  song will be here when you come back.
+                </p>
               </div>
             ) : (
               <div className="text-center">
