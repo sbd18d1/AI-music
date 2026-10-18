@@ -275,10 +275,16 @@ export default function Home() {
           setErrorMessage('这首歌生成失败了，请重新描述后再生成一首。');
           setShowResult(true);
         } else if (o.status === 'processing' || o.status === 'generating' || o.status === 'testing') {
-          // Still in flight — take over polling so the user sees progress instead of a blank page.
+          // Still in flight — resume polling so the user sees progress instead of a blank
+          // page. isLoading must be set here too: the result panel renders its
+          // "Generating…" state off it, and without this the page showed an empty song
+          // shell (no title, no player) that looked broken.
           setShowResult(true);
           setErrorMessage('');
-          if (o.aiRequestId) pollGenerationStatus(o.aiRequestId);
+          if (o.aiRequestId) {
+            setIsLoading(true);
+            await pollGenerationStatus(o.aiRequestId);
+          }
         }
       } catch (e) {
         console.error('[resume] failed to resume trial order:', e);
@@ -400,6 +406,10 @@ export default function Home() {
     const delay = 5000;
     const pollStartTime = Date.now();
 
+    // This function is now also called from the resume effect, which does not go
+    // through handleGenerateSong (whose finally used to clear isLoading). Without
+    // this, a resumed poll that succeeded left the UI stuck in "Generating…" forever.
+    try {
     for (let i = 0; i < maxRetries; i++) {
       const pollT0 = Date.now();
       try {
@@ -463,6 +473,9 @@ export default function Home() {
 
     setErrorMessage('Generation timeout');
     setShowResult(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // ===== PayPal payment flow helpers =====
