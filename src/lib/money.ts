@@ -5,9 +5,9 @@
  */
 
 /** Price for a full song (USD). This is what PayPal charges. */
-export const PURCHASE_PRICE = '9.90';
+export const PURCHASE_PRICE = '1.00';
 /** Coupon deduction per order (a fingerprint-bound coupon automatically subtracts this). */
-export const COUPON_VALUE = 4;
+export const COUPON_VALUE = 0.5;
 export const PURCHASE_CURRENCY = 'USD';
 
 /**

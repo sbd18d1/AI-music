@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description: 'Simple, transparent pricing - $9.90 per song. Create personalized AI-generated songs',
 };
 
-const PRICE = '$9.90';
+const PRICE = '$1.00';
 
 export default function PricingPage() {
   return (

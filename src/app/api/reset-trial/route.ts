@@ -1,102 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/db/client';
-import { tursoClient } from '@/lib/turso-client';
-import { ensureCouponTable } from '@/lib/ensure-coupon-table';
-import { ensureVisitTable } from '@/lib/ensure-analytics-table';
+import { resetDeviceData } from '@/lib/reset-device';
+
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 const resetSchema = z.object({
-  deviceId: z.string().max(200).optional(),
+  // Required now. Without a fingerprint there is no safe way to scope the deletion:
+  // falling back to IP would wipe every other user sharing that address.
+  deviceId: z.string().min(1).max(200),
 });
 
-function getClientIp(request: NextRequest): string {
-  const forwardedFor = request.headers.get('x-forwarded-for');
-  if (forwardedFor) {
-    return forwardedFor.split(',')[0].trim();
-  }
-  const realIp = request.headers.get('x-real-ip');
-  if (realIp) {
-    return realIp;
-  }
-  const ip = request.ip;
-  return ip || 'unknown';
-}
-
+/**
+ * POST /api/reset-trial
+ * Clears the free-trial state for ONE device fingerprint (see reset-device.ts).
+ * Paid orders are preserved.
+ */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { deviceId } = resetSchema.parse(body);
-    const ipAddress = getClientIp(request);
-
-    console.log(`[${new Date().toISOString()}] Resetting trial data for device: ${deviceId || 'none'}, IP: ${ipAddress}`);
-
-    // Build match condition: match by deviceId OR by ipAddress.
-    // IP fallback covers records created before deviceId was available,
-    // and local testing where all requests share the same IP.
-    const matchCondition = {
-      OR: [
-        ...(deviceId ? [{ deviceId }] : []),
-        { ipAddress },
-      ],
-    };
-
-    // Delete TrialUsage records for this device / IP
-    const deletedUsage = await prisma.trialUsage.deleteMany({
-      where: matchCondition,
-    });
-
-    // Delete trial orders (isFullVersion: false) for this device / IP.
-    // Paid orders (isFullVersion: true) are preserved.
-    const deletedOrders = await prisma.order.deleteMany({
-      where: {
-        OR: [
-          ...(deviceId ? [{ deviceId }] : []),
-          { ipAddress },
-        ],
-        isFullVersion: false,
-      },
-    });
-
-    // Reset must also void any fingerprint-bound unused coupons for this device, so a
-    // stale coupon can't be redeemed later (e.g. a $1 coupon left over from an old price).
-    let voidedCoupons = 0;
-    if (deviceId) {
-      await ensureCouponTable();
-      const res = await prisma.coupon.updateMany({
-        where: { issuedByDeviceId: deviceId, used: false },
-        data: { used: true, usedAt: new Date(), usedForOrderId: 'reset' },
-      });
-      voidedCoupons = res.count;
+    const body = await request.json().catch(() => ({}));
+    const parsed = resetSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'A device fingerprint is required to reset. Refusing to fall back to IP, ' +
+            'which would delete other users sharing the same network.',
+        },
+        { status: 400 }
+      );
     }
 
-    // Analytics rows carry the same deviceId, so a device reset (the user's route to
-    // erasing their data) must clear them too — otherwise Visit becomes the one place
-    // user-linked data survives a reset.
-    let deletedVisits = 0;
-    if (deviceId) {
-      await ensureVisitTable();
-      const res = await tursoClient.execute({
-        sql: `DELETE FROM "Visit" WHERE "deviceId" = ?`,
-        args: [deviceId],
-      });
-      deletedVisits = res.rowsAffected;
-    }
+    const { deviceId } = parsed.data;
+    console.log(
+      `[${new Date().toISOString()}] Reset requested for device: ${deviceId.slice(0, 12)}…`
+    );
 
-    console.log(`[${new Date().toISOString()}] Reset complete: deleted ${deletedUsage.count} trial usage(s) and ${deletedOrders.count} trial order(s), voided ${voidedCoupons} coupon(s), deleted ${deletedVisits} visit(s) for device: ${deviceId || 'none'}, IP: ${ipAddress}`);
+    const deleted = await resetDeviceData(deviceId);
 
-    return NextResponse.json({
-      success: true,
-      deleted: {
-        trialUsage: deletedUsage.count,
-        trialOrders: deletedOrders.count,
-        coupons: voidedCoupons,
-        visits: deletedVisits,
-      },
-    });
+    console.log(
+      `[${new Date().toISOString()}] Reset complete for device ${deviceId.slice(0, 12)}…: ` +
+        `trialUsage=${deleted.trialUsage} trialOrders=${deleted.trialOrders} ` +
+        `coupons=${deleted.coupons} visits=${deleted.visits} ` +
+        `(kept ${deleted.paidOrdersKept} paid order(s))`
+    );
+
+    return NextResponse.json({ success: true, deleted });
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] Reset trial error:`, error);
+    console.error(`[${new Date().toISOString()}] Reset error:`, error);
     return NextResponse.json(
-      { success: false, error: 'Failed to reset trial data' },
+      { success: false, error: 'Failed to reset data' },
       { status: 500 }
     );
   }

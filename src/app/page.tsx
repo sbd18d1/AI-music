@@ -91,7 +91,7 @@ export default function Home() {
 
   const [songConfig, setSongConfig] = useState<SongConfigSelection>(DEFAULT_SELECTION);
   // Price actually charged (USD), mirroring PURCHASE_PRICE in @/lib/money.
-  const [productPrice, setProductPrice] = useState<string>('$9.90');
+  const [productPrice, setProductPrice] = useState<string>('$1.00');
   const [priceLoading, setPriceLoading] = useState(false);
 
   // Coupon (fingerprint-bound) states — no user-facing code, no manual redemption.
@@ -1089,6 +1089,15 @@ export default function Home() {
             <span className="text-base-content/30">·</span>
             <a href="/refund" className="hover:text-primary transition-colors">Refund Policy</a>
           </div>
+          {/* Testing aid: clears THIS browser fingerprint's trial state only. Paid orders
+              are kept, and (unlike the old build) other users on the same network are not
+              touched — the API refuses to fall back to IP. */}
+          <a
+            href="/?reset=1"
+            className="inline-block mt-4 text-base-content/30 hover:text-base-content/60 text-base underline"
+          >
+            Reset (Clear this device's data)
+          </a>
           <div className="mt-6 pt-4 border-t border-base-300 text-xs text-base-content/40 space-y-1">
             <p className="font-medium">Smart Music Lab is owned and operated by Qingdao Dianliu Information Technology Co., Ltd.</p>
             <p>Company Registration No.: 91370213MAD9GFBR8X</p>
