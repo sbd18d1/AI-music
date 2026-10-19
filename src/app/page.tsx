@@ -85,7 +85,17 @@ export default function Home() {
   const [showPaidForm, setShowPaidForm] = useState(false);
   // Whether the device has already used its one free trial generation. Once true,
   // the form must only offer paid generation (no free "Hear a Preview" button).
-  const [hasUsedFreeTrial, setHasUsedFreeTrial] = useState(false);
+  // Initialise from localStorage so a device that already submitted a generation never
+  // flashes the preview button on reload, before the resume lookup has answered.
+  // trial_order_id is written the moment generation is submitted.
+  const [hasUsedFreeTrial, setHasUsedFreeTrial] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return !!localStorage.getItem('trial_order_id');
+    } catch {
+      return false;
+    }
+  });
   // True while we are asking the server about a generation left over from a reload.
   const [isResuming, setIsResuming] = useState(false);
 
@@ -254,6 +264,9 @@ export default function Home() {
         setOrderId(o.id);
         // The device already spent its free trial on this order.
         setHasUsedFreeTrial(true);
+        // The lookup is done: hide "Fetching your song…" now, before any polling
+        // starts. Otherwise it stayed on screen for the whole generation.
+        setIsResuming(false);
 
         if (o.status === 'success' && o.audioUrl) {
           setAudioUrl(o.audioUrl);
@@ -281,9 +294,15 @@ export default function Home() {
           // shell (no title, no player) that looked broken.
           setShowResult(true);
           setErrorMessage('');
+          setIsLoading(true);
           if (o.aiRequestId) {
-            setIsLoading(true);
             await pollGenerationStatus(o.aiRequestId);
+          } else {
+            // Submitted but the 302 task id has not landed yet (the order row is
+            // created before the submit call). Poll the ORDER instead of giving up:
+            // /api/order-status re-checks 302 server-side and stores the id once known.
+            // Without this the page sat on "Fetching your song…" until a manual reload.
+            await pollOrderUntilResumable(o.id);
           }
         }
       } catch (e) {
@@ -399,6 +418,58 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  /**
+   * Poll an in-flight ORDER until it either finishes or exposes an aiRequestId that
+   * lets us switch to the faster task-based polling. Used when the user reloads in the
+   * brief window after the order row was created but before it was submitted to 302.ai.
+   */
+  const pollOrderUntilResumable = async (orderId: string) => {
+    const maxAttempts = 60; // ~3 minutes at 3s intervals
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      try {
+        const res = await fetch(`/api/order-status?order_id=${encodeURIComponent(orderId)}`);
+        const data = await res.json();
+        if (!data?.success || !data.order) continue;
+        const o = data.order;
+
+        if (o.status === 'success' && o.audioUrl) {
+          setAudioUrl(o.audioUrl);
+          setIsPreview(true);
+          setSongTitle(o.title || '');
+          setSongLyrics(o.lyrics || '');
+          setCoverImageUrl(o.coverImageUrl || '');
+          setSongDuration(o.duration || '180');
+          setShowResult(true);
+          deliveryStrategy.saveSongData({
+            audioUrl: o.audioUrl,
+            isPreview: true,
+            title: o.title || '',
+            lyrics: o.lyrics || '',
+            coverImageUrl: o.coverImageUrl || '',
+            duration: o.duration || '180',
+          });
+          return;
+        }
+        if (o.status === 'failed') {
+          setErrorMessage('Your song could not be generated. Please try a new description.');
+          setShowResult(true);
+          return;
+        }
+        // Task id appeared — hand over to the normal poller.
+        if (o.aiRequestId) {
+          await pollGenerationStatus(o.aiRequestId);
+          return;
+        }
+      } catch (e) {
+        console.error('[resume] order poll failed:', e);
+      }
+    }
+    // Still nothing after ~3 minutes: say so rather than spinning forever.
+    setErrorMessage('Your song is taking longer than usual. Please refresh in a moment.');
+    setShowResult(true);
   };
 
   const pollGenerationStatus = async (taskId: string) => {
