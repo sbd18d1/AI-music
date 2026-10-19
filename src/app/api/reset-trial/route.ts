@@ -37,16 +37,14 @@ export async function POST(request: NextRequest) {
       `[${new Date().toISOString()}] Reset requested for device: ${deviceId.slice(0, 12)}…`
     );
 
-    const deleted = await resetDeviceData(deviceId);
+    const result = await resetDeviceData(deviceId);
 
     console.log(
       `[${new Date().toISOString()}] Reset complete for device ${deviceId.slice(0, 12)}…: ` +
-        `trialUsage=${deleted.trialUsage} trialOrders=${deleted.trialOrders} ` +
-        `coupons=${deleted.coupons} visits=${deleted.visits} ` +
-        `(kept ${deleted.paidOrdersKept} paid order(s))`
+        `preview re-enabled (no records deleted)`
     );
 
-    return NextResponse.json({ success: true, deleted });
+    return NextResponse.json({ success: true, ...result });
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Reset error:`, error);
     return NextResponse.json(
