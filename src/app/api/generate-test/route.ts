@@ -102,34 +102,18 @@ export async function POST(request: NextRequest) {
     // to resume an in-flight one). Gating first would hide their own order from them.
     const existingTrialOrder = await findLatestTrialOrder(deviceId);
 
-    // A device's existing order is SERVED below regardless of the limit: that is how a
-    // returning visitor gets their finished song (or resumes an in-flight one).
+    // Decide what this request should do. canPreview is the single source of truth:
+    //   false → the device already used its preview; serve back whatever it has
+    //           (a finished song, or an in-flight one to resume).
+    //   true  → the device may preview again (first visit, or just after a reset),
+    //           so start a NEW generation instead of replaying the old order.
     //
-    // The limit only governs whether we start ANOTHER generation. So it is checked when
-    // there is nothing to serve — a device that has already used up its preview and has
-    // no order to hand back must be blocked, not silently granted a second free song.
-    const hasOrderToServe = !!existingTrialOrder;
+    // Reset no longer deletes orders, so after a reset the previous row is still in the
+    // table. Replaying it would make reset look broken: the page would immediately show
+    // the old song and hide the preview button again.
+    const previewUsed = AI_GENERATION_MODE !== 'mock' ? await checkTrialLimit(deviceId) : false;
 
-    if (AI_GENERATION_MODE !== 'mock' && !hasOrderToServe) {
-      const hasUsedTrial = await checkTrialLimit(deviceId);
-      if (hasUsedTrial) {
-        console.log(`[${new Date().toISOString()}] Trial limit exceeded for device: ${deviceId}`);
-        // Count the blocked attempt — this user wanted a song and hit the paywall.
-        await recordServerEvent('trial_blocked', { path: '/', deviceId });
-        return NextResponse.json(
-          {
-            success: false,
-            // Derived from PURCHASE_PRICE so the message can never drift from the real
-            // price again (it still said $4.99 long after the price became $1.00).
-            error: `Free trial limit exceeded. Please purchase the full version for ${PURCHASE_PRICE}.`,
-            showUpgrade: true,
-          },
-          { status: 429 }
-        );
-      }
-    }
-
-    if (existingTrialOrder) {
+    if (previewUsed && existingTrialOrder) {
       if (existingTrialOrder.audioUrl && isPlayableAudioUrl(existingTrialOrder.audioUrl)) {
         console.log(`[${new Date().toISOString()}] Reusing existing trial order ${existingTrialOrder.id} for device: ${deviceId}`);
         // Match the fresh-generation path: return the remote CDN URL directly for <audio>,
@@ -191,6 +175,19 @@ export async function POST(request: NextRequest) {
         }
         console.log(`[${new Date().toISOString()}] Trial ${existingTrialOrder.id} previously failed; allowing a fresh attempt`);
       }
+    }
+
+    // Exhausted devices with no order to fall back on must not get a free song.
+    if (previewUsed && !existingTrialOrder) {
+      await recordServerEvent('trial_blocked', { path: '/', deviceId });
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Free trial limit exceeded. Please purchase the full version for ${PURCHASE_PRICE}.`,
+          showUpgrade: true,
+        },
+        { status: 429 }
+      );
     }
 
     let recipientName = body.recipientName || 'Gift Recipient';
