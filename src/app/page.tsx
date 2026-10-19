@@ -87,7 +87,7 @@ export default function Home() {
   // the form must only offer paid generation (no free "Hear a Preview" button).
   // Initialise from localStorage so a device that already submitted a generation never
   // flashes the preview button on reload, before the resume lookup has answered.
-  // trial_order_id is written the moment generation is submitted.
+  // trial_order_id is written as soon as the server acknowledges the submission.
   const [hasUsedFreeTrial, setHasUsedFreeTrial] = useState(() => {
     if (typeof window === 'undefined') return false;
     try {
@@ -359,6 +359,13 @@ export default function Home() {
         if (data.status === 'generating' && data.taskId) {
           setIsLoading(true);
           setShowResult(false);
+          // Persist the order id NOW, not after completion: the generator can take
+          // minutes, and a reload in the meantime must know this device already spent
+          // its preview. This is also what the resume flow reads to find the order.
+          if (data.orderId) {
+            localStorage.setItem('trial_order_id', data.orderId);
+            setHasUsedFreeTrial(true);
+          }
           await pollGenerationStatus(data.taskId);
         } else if (data.audioUrl) {
           setAudioUrl(data.audioUrl);
@@ -924,7 +931,7 @@ export default function Home() {
                     <span className="text-base-content/80">Fetching your song…</span>
                   </div>
                 )}
-                {!hasUsedFreeTrial && !isPaidDevice && (
+                {!hasUsedFreeTrial && !isPaidDevice && !isResuming && (
                 <button
                   type="button"
                   onClick={handleGenerateSong}
@@ -944,7 +951,7 @@ export default function Home() {
                   )}
                 </button>
                 )}
-                {!hasUsedFreeTrial && !isPaidDevice && (
+                {!hasUsedFreeTrial && !isPaidDevice && !isResuming && (
                   <p className="text-center text-base-content/60 text-sm mt-1">
                     Listen to a short preview. No download.
                   </p>
