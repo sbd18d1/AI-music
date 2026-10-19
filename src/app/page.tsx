@@ -97,7 +97,20 @@ export default function Home() {
     }
   });
   // True while we are asking the server about a generation left over from a reload.
-  const [isResuming, setIsResuming] = useState(false);
+  //
+  // Seeded SYNCHRONOUSLY from localStorage rather than set inside useEffect: effects
+  // run after the first paint, so starting at false meant the preview button was always
+  // rendered once before being hidden. Has the same shape as the guard in the mount
+  // effect (paid device / already-saved song → nothing to resume).
+  const [isResuming, setIsResuming] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      if (localStorage.getItem('device_has_paid') === 'true') return false;
+      return !!localStorage.getItem('trial_order_id');
+    } catch {
+      return false;
+    }
+  });
 
   const [songConfig, setSongConfig] = useState<SongConfigSelection>(DEFAULT_SELECTION);
   // Price actually charged (USD), mirroring PURCHASE_PRICE in @/lib/money.
@@ -224,8 +237,16 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     // A paid device, or a song already restored from the snapshot, needs no resume.
-    if (localStorage.getItem('device_has_paid') === 'true') return;
-    if (deliveryStrategy.getSavedSongData()) return; // already have the finished song
+    // Clear the flag seeded at mount on both early exits, or the UI would stay in the
+    // resuming state forever.
+    if (localStorage.getItem('device_has_paid') === 'true') {
+      setIsResuming(false);
+      return;
+    }
+    if (deliveryStrategy.getSavedSongData()) {
+      setIsResuming(false);
+      return;
+    }
 
     let cancelled = false;
     setIsResuming(true);
