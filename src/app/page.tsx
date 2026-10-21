@@ -952,7 +952,12 @@ export default function Home() {
                     <span className="text-base-content/80">Fetching your song…</span>
                   </div>
                 )}
-                {!hasUsedFreeTrial && !isPaidDevice && !isResuming && (
+                {/* The preview control stays on screen while a generation is running.
+                    hasUsedFreeTrial flips to true the moment generation is submitted,
+                    so gating the button on it made the button (and its "Generating…"
+                    state) vanish mid-generation, leaving no progress indicator at all.
+                    Show it while loading even if the preview has been consumed. */}
+                {(!hasUsedFreeTrial || isLoading) && !isPaidDevice && !isResuming && (
                 <button
                   type="button"
                   onClick={handleGenerateSong}
@@ -972,7 +977,7 @@ export default function Home() {
                   )}
                 </button>
                 )}
-                {!hasUsedFreeTrial && !isPaidDevice && !isResuming && (
+                {!hasUsedFreeTrial && !isPaidDevice && !isResuming && !isLoading && (
                   <p className="text-center text-base-content/60 text-sm mt-1">
                     Listen to a short preview. No download.
                   </p>
