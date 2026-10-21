@@ -769,7 +769,34 @@ export async function checkResultOnce(taskId: string): Promise<GenerateSongRespo
       data = JSON.parse(responseBodyText);
     } catch (parseError) {
       log('JSON parse failed:', parseError instanceof Error ? parseError.message : String(parseError));
+      // A non-2xx with an unparseable body is still an upstream failure, not 'pending'.
+      if (!response.ok) {
+        return { success: false, requestId: taskId, error: `Generation service unavailable (HTTP ${response.status}).` };
+      }
       return { success: false, requestId: taskId };
+    }
+
+    // Surface upstream errors instead of mistaking them for 'still generating'.
+    //
+    // When 302.ai runs out of credit it answers 401 with
+    //   { error: { err_code: -10004, message: 'Insufficient account balance…' } }
+    // That body has no song array, so the old code fell through every check and
+    // returned success:false with NO error — which generate-status interpreted as
+    // 'keep polling'. The user then waited forever on a song that would never appear.
+    const upstreamError = data?.error;
+    if (!response.ok || upstreamError) {
+      const rawMsg =
+        typeof upstreamError === 'string'
+          ? upstreamError
+          : upstreamError?.message || upstreamError?.message_cn || `HTTP ${response.status}`;
+      log(`302.ai error (HTTP ${response.status}):`, rawMsg);
+      // Translate the one error an operator can actually act on.
+      const isBalance =
+        upstreamError?.err_code === -10004 || /insufficient|balance|余额/i.test(String(rawMsg));
+      const userMessage = isBalance
+        ? 'The song service is temporarily unavailable (account balance). Please try again later.'
+        : 'The song service returned an error. Please try again.';
+      return { success: false, requestId: taskId, error: userMessage };
     }
 
     // Check top-level status indicators (302.ai returns these when complete)
