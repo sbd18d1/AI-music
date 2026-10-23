@@ -10,7 +10,7 @@ import { DEFAULT_SELECTION, isSelectionComplete, deriveGenreFromConfig, type Son
 import { getDeviceId } from '@/lib/device-id';
 import { canUseNativeShare, openNativeShare, type SharePayload } from '@/lib/share';
 import { track } from '@/lib/analytics-client';
-import { COUPON_VALUE } from '@/lib/money';
+import { COUPON_VALUE, PURCHASE_PRICE } from '@/lib/money';
 
 type Style = 'Classic Rock' | 'Country & Folk' | 'Blues & Soul' | '60s/70s Pop Ballad';
 type ArtistStyle = 'None' | 'Frank Sinatra' | 'Elvis Presley' | 'The Beatles' | 'The Rolling Stones' | 'Bob Dylan' | 'Simon & Garfunkel' | 'Aretha Franklin' | 'Neil Diamond' | 'Johnny Cash';
@@ -118,11 +118,20 @@ export default function Home() {
   const [priceLoading, setPriceLoading] = useState(false);
 
   // Coupon (fingerprint-bound) states — no user-facing code, no manual redemption.
-  // Displayed only — the real discount is applied server-side from @/lib/money.
-  const couponLabel = `$${Number(COUPON_VALUE).toFixed(2)}`;
   const [couponEarned, setCouponEarned] = useState(false); // shown as "you earned $X off" toast
   const [hasCoupon, setHasCoupon] = useState(false);       // whether this fingerprint owns an unused coupon
   const [couponValue, setCouponValue] = useState(0);       // its value (for display)
+
+  // Displayed only — the real discount is applied server-side from @/lib/money.
+  const couponLabel = `${Number(COUPON_VALUE).toFixed(2)}`;
+  // What the customer actually pays once their coupon is applied. The server deducts
+  // the coupon automatically at checkout (create-order), so the button should show the
+  // same number the customer will see on the PayPal page.
+  const basePriceNum = Number(PURCHASE_PRICE);
+  const couponNum = hasCoupon ? Math.min(Number(couponValue) || 0, basePriceNum) : 0;
+  const effectivePriceNum = Math.max(0, basePriceNum - couponNum);
+  const effectivePrice = `${effectivePriceNum.toFixed(2)}`;
+  const couponAppliedLabel = `${couponNum.toFixed(2)}`;
 
   // Share (native sheet / modal) state
   const [shareOpen, setShareOpen] = useState(false);
@@ -999,12 +1008,21 @@ export default function Home() {
                   ) : (
                     <>
                       <CreditCard className="w-6 h-6" />
-                      Create Full Song ({productPrice})
+                      Create Full Song ({couponNum > 0 ? (
+                        <>
+                          <s className="font-normal opacity-70">{productPrice}</s>{couponNum > 0 ? " " : ""}
+                          {effectivePrice}
+                        </>
+                      ) : (
+                        productPrice
+                      )})
                     </>
                   )}
                 </button>
                 <p className="text-center text-base-content/60 text-sm mt-1">
-                  Full song with MP3 download. One-time payment.
+                  {couponNum > 0
+                    ? `Coupon applied: -${couponAppliedLabel} · you pay ${effectivePrice} today`
+                    : "Full song with MP3 download. One-time payment."}
                 </p>
 
                 {couponEarned && (

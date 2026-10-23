@@ -62,20 +62,35 @@ export async function generateMetadata(
 
   const pageUrl = `${baseUrl}/song/${id}`;
 
+  // Share card built from the song itself. Do NOT splice in `genre`/`recipientName`:
+  // the app never actually collects them (the client sends the literal "Gift
+  // Recipient" and a default genre), so including them produced cards that were
+  // wrong in both halves.
+  const shareTitle = songData.title || 'A Personalized Song';
+  const shareDescription =
+    'Listen to a one-of-a-kind song created with AI on Smart Music Lab.';
+
+  // Absolute, publicly fetchable URL. Social crawlers (X, Facebook, WhatsApp) require
+  // an absolute image URL and will silently render a bare link if they cannot fetch
+  // it — which is why the card showed no picture.
+  const ogImage = /^https?:\/\//i.test(imageUrl) ? imageUrl : `${baseUrl}${imageUrl}`;
+
   return {
-    title: `🎵 A Special ${songData.genre} Song for ${songData.recipientName || 'You'}`,
-    description: `Listen to the custom ${songData.genre} melody built from family memories. Made with love.`,
+    title: `🎵 ${shareTitle}`,
+    description: shareDescription,
     openGraph: {
-      title: `🎵 A Special ${songData.genre} Song for ${songData.recipientName || 'You'}`,
-      description: `Listen to this nostalgic ${songData.genre} track created for our family.`,
+      title: `🎵 ${shareTitle}`,
+      description: shareDescription,
       url: pageUrl,
-      siteName: 'AI Music Generator',
+      siteName: 'Smart Music Lab',
       images: [
         {
-          url: imageUrl,
+          url: ogImage,
+          // The generated cover is square-ish; X/Facebook prefer 1.91:1 but will
+          // crop a larger image rather than drop it.
           width: 1200,
           height: 630,
-          alt: 'Vintage Album Cover',
+          alt: shareTitle,
         },
       ],
       locale: 'en_US',
@@ -83,8 +98,9 @@ export async function generateMetadata(
     },
     twitter: {
       card: 'summary_large_image',
-      title: `🎵 Custom ${songData.genre} Song for ${songData.recipientName}`,
-      images: [imageUrl],
+      title: `🎵 ${shareTitle}`,
+      description: shareDescription,
+      images: [ogImage],
     },
   };
 }

@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Loader2, Check, X, Music, Clock, ArrowLeft, Download, Mail, Share2 } from 'lucide-react';
 import ShareModal from '@/components/ShareModal';
+import { getDeviceId } from '@/lib/device-id';
 import { openNativeShare, type SharePayload } from '@/lib/share';
+import { COUPON_VALUE, PURCHASE_PRICE } from '@/lib/money';
 
 interface Order {
   id: string;
@@ -35,6 +37,8 @@ export default function OrderStatus() {
   // homepage's share button, so the post-payment and home flows behave identically.
   const [shareOpen, setShareOpen] = useState(false);
   const [sharePayload, setSharePayload] = useState<SharePayload>({ url: '', title: '', text: '' });
+  // Sharing after a completed purchase earns one coupon for the next song.
+  const [couponEarned, setCouponEarned] = useState(false);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -178,9 +182,28 @@ export default function OrderStatus() {
     return {
       url: `${base}/song/${order.id}`,
       title: `🎵 ${order.title || 'A custom song'} — made on Smart Music Lab`,
-      text: `Listen to this special song for ${order.recipientName}! Made with love on Smart Music Lab.`,
+      text: `Listen to "${order.title || 'my personalized song'}" — made with love on Smart Music Lab.`,
     };
   }, [order]);
+
+  // Award the share coupon. The server only issues it for a device with a COMPLETED
+  // paid order, so calling this from a free preview is rejected — which is why the
+  // reward is phrased as applying to the customer's next song.
+  const awardShareCoupon = useCallback(async () => {
+    try {
+      const deviceId = await getDeviceId();
+      if (!deviceId) return;
+      const res = await fetch('/api/coupon/issue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId }),
+      });
+      const data = await res.json();
+      if (data?.success) setCouponEarned(true);
+    } catch (e) {
+      console.error('[coupon] issue failed:', e);
+    }
+  }, []);
 
   const handleOpenShare = useCallback(() => {
     const payload = buildSharePayload();
@@ -189,9 +212,12 @@ export default function OrderStatus() {
       if (!usedNative) {
         setSharePayload(payload);
         setShareOpen(true);
+      } else {
+        // Shared via the OS sheet — award immediately (no modal to wait on).
+        awardShareCoupon();
       }
     });
-  }, [buildSharePayload]);
+  }, [buildSharePayload, awardShareCoupon]);
 
   // 发送邮件到用户输入的邮箱
   const handleSendEmail = async () => {
@@ -245,7 +271,7 @@ export default function OrderStatus() {
             </div>
             <h3 className="font-serif text-2xl font-bold text-deep-navy mb-2">AI is Creating Your Song</h3>
             <p className="text-deep-navy/70 text-lg">
-              We're generating your personalized {order.genre} song for {order.recipientName}.
+              We're creating your personalized song now.
               <br />This usually takes 1-2 minutes. Please keep this page open — it will
               auto-update when your song is ready.
             </p>
@@ -260,7 +286,7 @@ export default function OrderStatus() {
             </div>
             <h3 className="font-serif text-2xl font-bold text-deep-navy mb-2">Your Song is Ready!</h3>
             <p className="text-deep-navy/70 text-lg mb-6">
-              Here's your personalized {order.genre} song for {order.recipientName}:
+              Here's your personalized song:
             </p>
             
             {order.coverImageUrl && (
@@ -331,9 +357,21 @@ export default function OrderStatus() {
                   Share
                 </button>
               </div>
-              <p className="text-center text-deep-navy/60 text-lg mt-4">
-                Share your unique song with friends and family!
+              <p className="text-center text-deep-navy/70 text-lg mt-4">
+                Share your song with friends and family.
               </p>
+              {/* Derived from the configured coupon and price so the number shown always
+                  matches what the server will actually deduct. */}
+              <p className="text-center font-semibold text-base mt-1 text-deep-navy">
+                Share now and get {Number(COUPON_VALUE).toFixed(2)} off your next song
+                — pay {(Number(PURCHASE_PRICE) - Number(COUPON_VALUE)).toFixed(2)} instead of
+                {Number(PURCHASE_PRICE).toFixed(2)}.
+              </p>
+              {couponEarned && (
+                <p className="text-center text-success font-bold text-base mt-2">
+                  🎉 You earned {Number(COUPON_VALUE).toFixed(2)} off your next song — applied automatically at checkout.
+                </p>
+              )}
             </div>
 
             {/* 邮箱发送区域 - 用户可主动输入邮箱接收歌曲 */}
@@ -566,6 +604,7 @@ export default function OrderStatus() {
         isOpen={shareOpen}
         onClose={() => setShareOpen(false)}
         payload={sharePayload}
+        onShared={awardShareCoupon}
       />
     </div>
   );
